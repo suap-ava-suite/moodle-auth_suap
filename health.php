@@ -27,6 +27,7 @@ include_once("version.php");
 
 $conf = get_auth_suap_config();
 ob_clean();
+
 header('Content-Type: application/json; charset=utf-8');
 header('X-Moodle-Plugin-Version: ' . $plugin->version);
 header('X-Moodle-Plugin-Release: ' . $plugin->release);
