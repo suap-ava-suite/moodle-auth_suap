@@ -8,11 +8,11 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  *
@@ -39,8 +39,7 @@ class auth_plugin_suap extends auth_oauth2\auth
     public $config;
     public $usuario;
 
-    public function __construct()
-    {
+    public function __construct() {
         $this->authtype = 'suap';
         $this->roleauth = 'auth_suap';
         $this->errorlogtag = '[AUTH SUAP] ';
@@ -48,23 +47,19 @@ class auth_plugin_suap extends auth_oauth2\auth
         $this->usuario = null;
     }
 
-    public function user_login($username, $password)
-    {
+    public function user_login($username, $password) {
         return false;
     }
 
-    public function can_change_password()
-    {
+    public function can_change_password() {
         return false;
     }
 
-    public function is_internal()
-    {
+    public function is_internal() {
         return false;
     }
 
-    function postlogout_hook($user)
-    {
+    function postlogout_hook($user) {
         global $CFG;
         if ($user->auth != 'suap') {
             return 0;
@@ -73,8 +68,7 @@ class auth_plugin_suap extends auth_oauth2\auth
         redirect($CFG->wwwroot . '/auth/suap/logout.php');
     }
 
-    public function login()
-    {
+    public function login() {
         global $CFG, $USER, $SESSION;
 
         $next = optional_param('next', '', PARAM_LOCALURL);
@@ -95,8 +89,7 @@ class auth_plugin_suap extends auth_oauth2\auth
         }
     }
 
-    public function authenticate()
-    {
+    public function authenticate() {
         global $CFG, $USER;
 
         if ($USER->id) {
@@ -117,7 +110,7 @@ class auth_plugin_suap extends auth_oauth2\auth
                     'code' => $code,
                     'redirect_uri' => "{$CFG->wwwroot}/auth/suap/authenticate.php",
                     'client_id' => $this->config->client_id,
-                    'client_secret' => $this->config->client_secret
+                    'client_secret' => $this->config->client_secret,
                 ]
             );
             $auth = json_decode($token_response);
@@ -128,7 +121,7 @@ class auth_plugin_suap extends auth_oauth2\auth
                 [
                     "Authorization: Bearer {$auth->access_token}",
                     "x-api-key: {$this->config->client_secret}",
-                    "Accept: application/json"
+                    "Accept: application/json",
                 ]
             );
             if (strpos($user_data_response, '"identificacao"') === false) {
@@ -140,15 +133,14 @@ class auth_plugin_suap extends auth_oauth2\auth
         } catch (Exception $e) {
             // Log error for administrators
             error_log('[AUTH SUAP] OAuth2 Authentication Error: ' . $e->getMessage());
-            
+
             // Display user-friendly error message
             print_error('auth_failure', 'auth_suap', '', null, $e->getMessage());
             die();
         }
     }
 
-    function create_or_update_user($userdata)
-    {
+    function create_or_update_user($userdata) {
         global $DB, $SESSION, $CFG;
 
         if (!property_exists($userdata, 'identificacao')) {
@@ -263,8 +255,7 @@ class auth_plugin_suap extends auth_oauth2\auth
         header("Location: $next", true, 302);
     }
 
-    function update_picture($usuario, $foto)
-    {
+    function update_picture($usuario, $foto) {
         global $CFG, $DB;
         require_once($CFG->libdir . '/gdlib.php');
 
@@ -278,8 +269,7 @@ class auth_plugin_suap extends auth_oauth2\auth
         }
     }
 
-    function get_userinfo($username)
-    {
+    function get_userinfo($username) {
         return get_object_vars($this->usuario);
     }
 }

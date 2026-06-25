@@ -1,4 +1,19 @@
 <?php
+// This file is part of Moodle - https://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+
 /**
  * Plugin upgrade helper functions are defined here.
  *
@@ -14,8 +29,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/auth/suap/locallib.php');
 
 
-function auth_suap_bulk_user_custom_field()
-{
+function auth_suap_bulk_user_custom_field() {
     global $DB;
 
     $suap = auth_suap_get_or_create('user_info_category', ['name' => 'SUAP'], ['sortorder' => auth_suap_get_last_sort_order('user_info_category')])->id;
@@ -48,7 +62,7 @@ function auth_suap_bulk_user_custom_field()
     $matricula = auth_suap_get_or_create('user_info_category', ['name' => 'Matrícula'], ['sortorder' => auth_suap_get_last_sort_order('user_info_category')])->id;
     auth_suap_save_user_custom_field($matricula, 'programa_nome', 'Nome do programa');
     auth_suap_save_user_custom_field($matricula, 'ingresso_periodo', 'Período de ingresso');
-    auth_suap_save_user_custom_field($matricula, 'outras_matriculas', 'Outras matrículas');    
+    auth_suap_save_user_custom_field($matricula, 'outras_matriculas', 'Outras matrículas');
 
     $polo = auth_suap_get_or_create('user_info_category', ['name' => 'Polo'], ['sortorder' => auth_suap_get_last_sort_order('user_info_category')])->id;
     auth_suap_save_user_custom_field($polo, 'polo_id', 'ID do polo');

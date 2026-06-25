@@ -8,11 +8,11 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  *
@@ -42,10 +42,10 @@ function auth_suap_curl_post($url, $data, $contenttype = 'application/x-www-form
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-    
+
     // Force HTTP/1.1 instead of HTTP/2
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
-    
+
     // Prepare data based on content type.
     if ($contenttype === 'application/x-www-form-urlencoded' && is_array($data)) {
         // Use PHP_QUERY_RFC3986 to encode with & instead of &amp;
@@ -55,9 +55,9 @@ function auth_suap_curl_post($url, $data, $contenttype = 'application/x-www-form
     } else {
         $postdata = $data;
     }
-    
+
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
-    
+
     // Set headers with explicit Content-Type and Content-Length.
     $httpheaders = $headers;
     if ($contenttype === 'application/x-www-form-urlencoded') {
@@ -66,26 +66,26 @@ function auth_suap_curl_post($url, $data, $contenttype = 'application/x-www-form
     } else {
         $httpheaders[] = 'Content-Type: ' . $contenttype;
     }
-    
+
     if (!empty($httpheaders)) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $httpheaders);
     }
-    
+
     $response = curl_exec($ch);
     $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlerror = curl_errno($ch);
     $curlerrormsg = curl_error($ch);
-    
+
     curl_close($ch);
-    
+
     if ($curlerror) {
         throw new Exception('cURL error: ' . $curlerrormsg . ' (code: ' . $curlerror . ')');
     }
-    
+
     if ($httpcode >= 400) {
         throw new Exception('HTTP error ' . $httpcode . ': ' . substr($response, 0, 500));
     }
-    
+
     return $response;
 }
 
@@ -105,26 +105,26 @@ function auth_suap_curl_get($url, $headers = []) {
     curl_setopt($ch, CURLOPT_TIMEOUT, 30);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-    
+
     if (!empty($headers)) {
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
     }
-    
+
     $response = curl_exec($ch);
     $httpcode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
     $curlerror = curl_errno($ch);
     $curlerrormsg = curl_error($ch);
-    
+
     curl_close($ch);
-    
+
     if ($curlerror) {
         throw new Exception('cURL error: ' . $curlerrormsg . ' (code: ' . $curlerror . ')');
     }
-    
+
     if ($httpcode >= 400) {
         throw new Exception('HTTP error ' . $httpcode . ': ' . substr($response, 0, 500));
     }
-    
+
     return $response;
 }
 
@@ -147,7 +147,7 @@ function auth_suap_get_or_create($tablename, $keys, $values) {
 }
 
 
-function auth_suap_create_or_update($tablename, $keys, $inserts, $updates=[], $insert_only=[]) {
+function auth_suap_create_or_update($tablename, $keys, $inserts, $updates = [], $insert_only = []) {
     global $DB;
     $record = $DB->get_record($tablename, $keys);
     if ($record) {
@@ -163,20 +163,19 @@ function auth_suap_create_or_update($tablename, $keys, $inserts, $updates=[], $i
 }
 
 
-function auth_suap_create_setting_configtext($settings, $name, $default='') {
+function auth_suap_create_setting_configtext($settings, $name, $default = '') {
     $theme_name = 'auth_suap';
-    $settings->add(new admin_setting_configtext("$theme_name/$name", get_string($name, $theme_name), get_string("{$name}_desc", $theme_name), $default));  
+    $settings->add(new admin_setting_configtext("$theme_name/$name", get_string($name, $theme_name), get_string("{$name}_desc", $theme_name), $default));
 }
 
 
-function auth_suap_create_setting_configtextarea($settings, $name, $default='') {
+function auth_suap_create_setting_configtextarea($settings, $name, $default = '') {
     $theme_name = 'auth_suap';
-    $settings->add(new admin_setting_configtextarea("$theme_name/$name", get_string($name, $theme_name), get_string("{$name}_desc", $theme_name), $default));  
+    $settings->add(new admin_setting_configtextarea("$theme_name/$name", get_string($name, $theme_name), get_string("{$name}_desc", $theme_name), $default));
 }
 
 
-function auth_suap_save_user_custom_field($categoryid, $shortname, $name, $datatype = 'text', $visible = 1, $p1 = NULL, $p2 = NULL)
-{
+function auth_suap_save_user_custom_field($categoryid, $shortname, $name, $datatype = 'text', $visible = 1, $p1 = null, $p2 = null) {
     return auth_suap_get_or_create(
         'user_info_field',
         ['shortname' => $shortname],

@@ -8,11 +8,11 @@
 //
 // Moodle is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
 //
 // You should have received a copy of the GNU General Public License
-// along with Moodle. If not, see <https://www.gnu.org/licenses/>.
+// along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
  *
@@ -48,7 +48,7 @@ function validate_enabled_web_services() {
 
     // Não pode se o serviço não existir e não estiver habilitado
     $servicename = required_param('service', PARAM_ALPHANUMEXT);
-    $service = $DB->get_record('external_services', array('shortname' => $servicename, 'enabled' => 1));
+    $service = $DB->get_record('external_services', ['shortname' => $servicename, 'enabled' => 1]);
     if (empty($service)) {
         throw new moodle_exception('servicenotavailable', 'webservice');
     }
@@ -68,7 +68,7 @@ function authenticate_service_caller() {
     $headers = getallheaders();
 
     // Verifica se o token de autenticação está no header
-    $authentication_key = array_key_exists('Authentication', $headers) ? "Authentication": "authentication";
+    $authentication_key = array_key_exists('Authentication', $headers) ? "Authentication" : "authentication";
     if (!array_key_exists($authentication_key, $headers)) {
         throw new \Exception("Bad Request - Authentication not informed", 400);
     }
@@ -146,10 +146,10 @@ function response_token($service) {
 
     // dev
     // echo json_encode(
-    //     [
-    //         "token" => $token->token,
-    //         "privatetoken" => !$USER->site_admin ? $token->privatetoken : null,
-    //     ]
+    // [
+    // "token" => $token->token,
+    // "privatetoken" => !$USER->site_admin ? $token->privatetoken : null,
+    // ]
     // );
     external_log_token_request($token);
 }
