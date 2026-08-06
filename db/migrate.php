@@ -48,8 +48,13 @@ function auth_suap_bulk_user_custom_field() {
     auth_suap_save_user_custom_field($pessoais, 'nome_social', 'Nome social');
     auth_suap_save_user_custom_field($pessoais, 'data_de_nascimento', 'Data de nascimento');
     auth_suap_save_user_custom_field($pessoais, 'sexo', 'Sexo');
+    auth_suap_save_user_custom_field($pessoais, 'suap_id', 'SUAP ID');
     auth_suap_save_user_custom_field($pessoais, 'cpf', 'CPF');
+    auth_suap_save_user_custom_field($pessoais, 'rg', 'RG');
     auth_suap_save_user_custom_field($pessoais, 'passaporte', 'Passaporte');
+    auth_suap_save_user_custom_field($pessoais, 'naturalidade', 'Naturalidade');
+    auth_suap_save_user_custom_field($pessoais, 'filiacao_mae', 'Nome da Mãe');
+    auth_suap_save_user_custom_field($pessoais, 'filiacao_pai', 'Nome do Pai');
     auth_suap_save_user_custom_field($pessoais, 'id_doc_certificado', 'ID do documento para certificado');
     auth_suap_save_user_custom_field($pessoais, 'tipo_doc_certificado', 'Tipo de documento para certificado');
     auth_suap_save_user_custom_field($pessoais, 'eh_estrangeiro', 'É estrangeiro', 'checkbox');
@@ -63,6 +68,15 @@ function auth_suap_bulk_user_custom_field() {
     auth_suap_save_user_custom_field($matricula, 'programa_nome', 'Nome do programa');
     auth_suap_save_user_custom_field($matricula, 'ingresso_periodo', 'Período de ingresso');
     auth_suap_save_user_custom_field($matricula, 'outras_matriculas', 'Outras matrículas');
+    auth_suap_save_user_custom_field($matricula, 'situacao_vinculo', 'Situação do vínculo');
+    auth_suap_save_user_custom_field($matricula, 'situacao_sistemica', 'Situação do vínculo - Sistêmica');
+    auth_suap_save_user_custom_field($matricula, 'matricula_regular', 'Matrícula regular', 'checkbox');
+    auth_suap_save_user_custom_field($matricula, 'vinculo_ativo', 'Vínculo ativo', 'checkbox');
+    auth_suap_save_user_custom_field($matricula, 'vinculo_cargo', 'Cargo do vínculo');
+    auth_suap_save_user_custom_field($matricula, 'vinculo_categoria', 'Categoria do vínculo');
+    auth_suap_save_user_custom_field($matricula, 'ira', 'IRA');
+    auth_suap_save_user_custom_field($matricula, 'matriz_curricular', 'Matriz curricular');
+    auth_suap_save_user_custom_field($matricula, 'turno', 'Turno');
 
     $polo = auth_suap_get_or_create('user_info_category', ['name' => 'Polo'], ['sortorder' => auth_suap_get_last_sort_order('user_info_category')])->id;
     auth_suap_save_user_custom_field($polo, 'polo_id', 'ID do polo');
@@ -80,8 +94,10 @@ function auth_suap_bulk_user_custom_field() {
     auth_suap_save_user_custom_field($curso, 'curso_descricao', 'Descrição do curso');
     auth_suap_save_user_custom_field($curso, 'curso_modalidade_id', 'Id da modalidade');
     auth_suap_save_user_custom_field($curso, 'curso_modalidade_descricao', 'Descrição da modalidade');
+    auth_suap_save_user_custom_field($curso, 'curso_modalidade', 'Modalidade');
     auth_suap_save_user_custom_field($curso, 'curso_nivel_ensino_id', 'Id do nível de ensino');
     auth_suap_save_user_custom_field($curso, 'curso_nivel_ensino_descricao', 'Descrição do nível de ensino');
+    auth_suap_save_user_custom_field($curso, 'curso_nivel_ensino', 'Nível de ensino');
 
     $turma = auth_suap_get_or_create('user_info_category', ['name' => 'Turma'], ['sortorder' => auth_suap_get_last_sort_order('user_info_category')])->id;
     auth_suap_save_user_custom_field($turma, 'turma_id', 'ID da última turma');

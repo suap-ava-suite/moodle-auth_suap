@@ -143,37 +143,29 @@ class auth_plugin_suap extends auth_oauth2\auth
     function create_or_update_user($userdata) {
         global $DB, $SESSION, $CFG;
 
-        if (!property_exists($userdata, 'identificacao')) {
-            echo "<p>Erro ao integrar com o SUAP.</p>";
+        $identificador = !empty($userdata->identificacao) ? $userdata->identificacao : (!empty($userdata->matricula) ? $userdata->matricula : null);
+        if (empty($identificador)) {
+            echo "<p>Erro ao integrar com o SUAP: identificação ou matrícula ausente.</p>";
             echo "<pre style='display: None'>";
             var_dump($userdata);
             echo "</pre>";
             die();
         }
-        $usuario = $DB->get_record("user", ["username" => strtolower($userdata->identificacao)]);
+        $username = strtolower($identificador);
+        $usuario = $DB->get_record("user", ["username" => $username]);
 
-        if ($userdata->nome_social) {
-            if (count(explode(' ', $userdata->nome_social)) == 1) {
-                $parts = explode(' ', $userdata->nome_registro);
-                $userdata->primeiro_nome = $userdata->nome_social . ' ' . implode(' ', array_slice($parts, 1, -1));
-                $userdata->ultimo_nome = array_slice($parts, -1)[0];
-            } else {
-                $userdata->primeiro_nome = implode(' ', array_slice(explode(' ', $userdata->nome_social), 0, -1));
-                $userdata->ultimo_nome = array_slice(explode(' ', $userdata->nome_social), -1)[0];
-            }
-        }
-        if (empty($userdata->nome_social)) {
-            $parts = explode(' ', $userdata->nome_registro);
-            $userdata->primeiro_nome = implode(' ', array_slice($parts, 0, -1));
-            $userdata->ultimo_nome = end($parts);
-        }
+        $parts = explode(' ', $userdata->nome_registro ?? '');
+        $primeiro_nome = implode(' ', array_slice($parts, 0, -1));
+        $ultimo_nome = end($parts);
+        $email = $userdata->email_preferencial ?? ($userdata->email ?? $userdata->email_secundario);
 
         if (!$usuario) {
             $usuario = (object)[
-                'username' => strtolower($userdata->identificacao),
-                'firstname' => $userdata->primeiro_nome,
-                'lastname' => $userdata->ultimo_nome,
-                'email' => $userdata->email_preferencial,
+                'username' => $username,
+                'idnumber' => $identificador,
+                'firstname' => $primeiro_nome,
+                'lastname' => $ultimo_nome,
+                'email' => $email,
                 'auth' => 'suap',
                 'suspended' => 0,
                 'password' => '!aA1' . uniqid(),
@@ -194,78 +186,146 @@ class auth_plugin_suap extends auth_oauth2\auth
             $usuario->id = \user_create_user($usuario);
 
             $default_user_preferences = get_config('local/suap', 'default_user_preferences');
-            foreach (preg_split('/\r\n|\r|\n/', $default_user_preferences) as $preference) {
-                $parts = explode("=", $preference);
-                if (count($parts) == 2) {
-                    \set_user_preference($parts[0], $parts[1], $usuario);
+            if ($default_user_preferences) {
+                foreach (preg_split('/\r\n|\r|\n/', $default_user_preferences) as $preference) {
+                    $parts = explode("=", $preference);
+                    if (count($parts) == 2) {
+                        \set_user_preference($parts[0], $parts[1], $usuario);
+                    }
                 }
             }
         }
 
-        $parts = explode(' ', $userdata->primeiro_nome);
-        $usuario->firstname = $userdata->primeiro_nome;
-        $usuario->lastname = $userdata->ultimo_nome ?: end($parts);
-        $usuario->email = $userdata->email_preferencial;
+        $usuario->firstname = $primeiro_nome;
+        $usuario->lastname = $userdata->ultimo_nome;
+        $usuario->email = $email;
         $usuario->auth = 'suap';
         $usuario->suspended = 0;
-        $usuario->profile_field_nome_apresentacao = $userdata->nome_usual;
-        $usuario->profile_field_nome_completo = property_exists($userdata, 'nome_registro') ? $userdata->nome_registro : null;
-        $usuario->profile_field_nome_social = property_exists($userdata, 'nome_social') ? $userdata->nome_social : null;
-        $usuario->profile_field_email_secundario = property_exists($userdata, 'email_secundario') ? $userdata->email_secundario : null;
-        $usuario->profile_field_email_google_classroom = property_exists($userdata, 'email_google_classroom') ? $userdata->email_google_classroom : null;
-        $usuario->profile_field_email_academico = property_exists($userdata, 'email_academico') ? $userdata->email_academico : null;
-        $usuario->profile_field_campus_sigla = property_exists($userdata, 'campus') ? $userdata->campus : null;
-        $usuario->profile_field_last_login = \json_encode($userdata);
-        $usuario->profile_field_tipo_usuario = property_exists($userdata, 'tipo_usuario') ? $userdata->tipo_usuario : null;
 
-        $usuario->profile_field_data_de_nascimento = property_exists($userdata, 'data_de_nascimento') ? $userdata->data_de_nascimento : null;
-        $usuario->profile_field_sexo = property_exists($userdata, 'sexo') ? $userdata->sexo : null;
-        $usuario->profile_field_cpf = property_exists($userdata, 'cpf') ? $userdata->cpf : null;
-        $usuario->profile_field_passaporte = property_exists($userdata, 'passaporte') ? $userdata->passaporte : null;
+        // Custom Profile Fields
+        $usuario->profile_field_nome_apresentacao = $userdata->nome_usual ?? null;
+        $usuario->profile_field_nome_completo = $userdata->nome_registro ?? ($userdata->nome ?? null);
+        $usuario->profile_field_nome_social = $userdata->nome_social ?? null;
+        $usuario->profile_field_email_secundario = $userdata->email_secundario ?? null;
+        $usuario->profile_field_email_google_classroom = $userdata->email_google_classroom ?? null;
+        $usuario->profile_field_email_academico = $userdata->email_academico ?? null;
+        $usuario->profile_field_campus_sigla = $userdata->campus ?? ($userdata->vinculo->campus ?? null);
+        $usuario->profile_field_last_login = \json_encode($userdata);
+        $usuario->profile_field_tipo_usuario = $userdata->tipo_usuario ?? null;
+
+        $usuario->profile_field_data_de_nascimento = $userdata->data_nascimento ?? ($userdata->data_de_nascimento ?? null);
+        $usuario->profile_field_sexo = $userdata->sexo ?? null;
+        $usuario->profile_field_suap_id = $userdata->id ?? null;
+        $usuario->profile_field_cpf = $userdata->cpf ?? null;
+        $usuario->profile_field_rg = $userdata->rg ?? null;
+        $usuario->profile_field_passaporte = $userdata->passaporte ?? null;
+        $usuario->profile_field_naturalidade = $userdata->naturalidade ?? null;
+
+        if (property_exists($userdata, 'filiacao') && is_array($userdata->filiacao)) {
+            $usuario->profile_field_filiacao_mae = $userdata->filiacao[0] ?? null;
+            $usuario->profile_field_filiacao_pai = $userdata->filiacao[1] ?? null;
+        }
 
         if ($usuario->profile_field_cpf || $usuario->profile_field_passaporte) {
             $usuario->profile_field_id_doc_certificado = $usuario->profile_field_cpf ? $usuario->profile_field_cpf : $usuario->profile_field_passaporte;
             $usuario->profile_field_tipo_doc_certificado = $usuario->profile_field_cpf ? "CPF" : "Passaporte";
         }
 
-        if (property_exists($userdata, 'eh_estrangeiro')) {
-            $usuario->profile_field_eh_estrangeiro = $userdata->eh_estrangeiro;
+        // Flags de vínculo
+        $tipo_vinculo = $userdata->tipo_vinculo ?? '';
+        $tipo_usuario = $userdata->tipo_usuario ?? '';
+        $usuario->profile_field_eh_servidor = $tipo_vinculo == 'Servidor';
+        $usuario->profile_field_eh_aluno = $tipo_usuario === 'Aluno';
+        $usuario->profile_field_eh_prestador = $tipo_vinculo === 'Prestador de Serviço';
+        $usuario->profile_field_eh_usuarioexterno = $tipo_vinculo === 'Prestador de Serviço';
+
+        // Vínculo equivalente & detalhamento
+        $vinculo_equivalente = null;
+        if (property_exists($userdata, 'vinculos') && is_array($userdata->vinculos) && !empty($userdata->vinculos)) {
+            foreach ($userdata->vinculos as $v) {
+                if ($v->matricula == $identificador) {
+                    $vinculo_equivalente = $v;
+                    break;
+                }
+            }
         }
 
-        if (property_exists($userdata, 'modalidade')) {
-            $usuario->profile_field_modalidade_id = property_exists($userdata->modalidade, 'id') ? $userdata->modalidade->id : null;
-            $usuario->profile_field_modalidade_descricao = property_exists($userdata->modalidade, 'descricao') ? $userdata->modalidade->descricao : null;
-            if (property_exists($userdata->modalidade, 'nivel_ensino')) {
-                $usuario->profile_field_modalidade_id = property_exists($userdata->modalidade->nivel_ensino, 'id') ? $userdata->modalidade->nivel_ensino->id : null;
-                $usuario->profile_field_modalidade_descricao = property_exists($userdata->modalidade->nivel_ensino, 'descricao') ? $userdata->modalidade->nivel_ensino->descricao : null;
+        if ($vinculo_equivalente) {
+            if (property_exists($vinculo_equivalente, 'estrangeiro')) {
+                $usuario->profile_field_eh_estrangeiro = $vinculo_equivalente->estrangeiro;
             }
+            $detalhamento = property_exists($vinculo_equivalente, 'detalhamento') ? $vinculo_equivalente->detalhamento : null;
+            if ($detalhamento) {
+                $usuario->profile_field_curso_modalidade = $detalhamento->modalidade ?? null;
+                $usuario->profile_field_curso_nivel_ensino = $detalhamento->nivel_ensino ?? null;
+                $usuario->profile_field_vinculo_ativo = $detalhamento->ativo ?? 0;
+                $usuario->profile_field_vinculo_cargo = $detalhamento->cargo ?? null;
+                $usuario->profile_field_vinculo_categoria = $detalhamento->categoria ?? null;
+            }
+        }
+
+        // Vínculo corrente
+        if (property_exists($userdata, 'vinculo') && is_object($userdata->vinculo)) {
+            $usuario->profile_field_matricula_regular = $userdata->vinculo->matricula_regular ?? 0;
+            $usuario->profile_field_situacao_vinculo = $userdata->vinculo->situacao ?? null;
+            $usuario->profile_field_situacao_sistemica = $userdata->vinculo->situacao_sistemica ?? null;
+            $usuario->profile_field_ira = $userdata->vinculo->ira ?? null;
+            $usuario->profile_field_matriz_curricular = $userdata->vinculo->matriz ?? null;
+            $usuario->profile_field_ingresso_periodo = $userdata->vinculo->ingresso ?? null;
+            $usuario->profile_field_curso_descricao = $userdata->vinculo->curso ?? null;
         }
 
         $this->usuario = $usuario;
         $next = $SESSION->next_after_next;
 
         $this->update_user_record($this->usuario->username);
-        if (property_exists($userdata, 'foto') && $userdata->foto) {
-            $this->update_picture($usuario, $userdata->foto);
+
+        $foto_sources = [];
+        if (!empty($userdata->url_foto_150x200)) {
+            $foto_sources[] = $userdata->url_foto_150x200;
         }
-        $usuario = $DB->get_record("user", ["username" => strtolower($userdata->identificacao)]);
+        if (!empty($userdata->url_foto_75x100)) {
+            $foto_sources[] = $userdata->url_foto_75x100;
+        }
+        if (!empty($userdata->foto)) {
+            $foto_sources[] = $userdata->foto;
+        }
+        if (!empty($foto_sources)) {
+            $this->update_picture($usuario, $foto_sources);
+        }
+
+        $usuario = $DB->get_record("user", ["username" => $username]);
 
         complete_user_login($usuario);
 
         header("Location: $next", true, 302);
     }
 
-    function update_picture($usuario, $foto) {
+    function update_picture($usuario, $foto_sources) {
         global $CFG, $DB;
         require_once($CFG->libdir . '/gdlib.php');
 
-        $conf = get_auth_suap_config();
+        if (!is_array($foto_sources)) {
+            $foto_sources = [$foto_sources];
+        }
 
-        $tmp_filename = $CFG->tempdir . '/suapfoto' . $usuario->id;
-        file_put_contents($tmp_filename, file_get_contents($foto));
-        $usuario->imagefile = process_new_icon(context_user::instance($usuario->id, MUST_EXIST), 'user', 'icon', 0, $tmp_filename);
-        if ($usuario->imagefile) {
-            $DB->set_field('user', 'picture', $usuario->imagefile, ['id' => $usuario->id]);
+        $content = false;
+        foreach ($foto_sources as $url) {
+            if (!empty($url)) {
+                $content = @file_get_contents($url);
+                if ($content !== false && strlen($content) > 0) {
+                    break;
+                }
+            }
+        }
+
+        if ($content !== false && strlen($content) > 0) {
+            $tmp_filename = $CFG->tempdir . '/suapfoto' . $usuario->id;
+            file_put_contents($tmp_filename, $content);
+            $usuario->imagefile = process_new_icon(context_user::instance($usuario->id, MUST_EXIST), 'user', 'icon', 0, $tmp_filename);
+            if ($usuario->imagefile) {
+                $DB->set_field('user', 'picture', $usuario->imagefile, ['id' => $usuario->id]);
+            }
         }
     }
 

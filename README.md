@@ -77,13 +77,16 @@ Agora, ao clicar no botao de login, voce sera redirecionado para a tela de auten
 Para funcionar, configure `verify_token_url` em `auth_suap` (tabela `config_plugins`), pois o plugin nao possui este campo na tela de configuracao.
 
 ## Campos de perfil criados automaticamente
-Na instalacao/atualizacao o plugin cria o grupo **SUAP** de campos customizados e registra:
-- `data_de_nascimento`
-- `sexo`
-- `id_doc_certificado`
-- `tipo_doc_certificado`
-- `cpf` (preterido em favor de `id_doc_certificado` e `tipo_doc_certificado`)
-- `passaporte` (preterido em favor de `id_doc_certificado` e `tipo_doc_certificado`)
+## Campos de perfil criados automaticamente
+Na instalação/atualização o plugin cria os grupos de campos customizados (**SUAP**, **Dados pessoais**, **Dados de contato**, **Matrícula**, **Polo**, **Campus**, **Curso** e **Turma**) e registra:
+- `tipo_usuario`, `eh_servidor`, `eh_aluno`, `eh_prestador`, `eh_usuarioexterno`, `eh_docente`, `eh_tecnico_administrativo`, `last_login`
+- `nome_apresentacao`, `nome_completo`, `nome_social`, `data_de_nascimento`, `sexo`, `cpf`, `rg`, `passaporte`, `naturalidade`, `filiacao_mae`, `filiacao_pai`, `id_doc_certificado`, `tipo_doc_certificado`, `eh_estrangeiro`
+- `email_google_classroom`, `email_academico`, `email_secundario`
+- `programa_nome`, `ingresso_periodo`, `outras_matriculas`, `situacao_vinculo`, `matricula_regular`, `vinculo_ativo`, `vinculo_cargo`, `vinculo_categoria`, `ira`, `matriz_curricular`
+- `polo_id`, `polo_nome`, `polo_sigla`
+- `campus_id`, `campus_descricao`, `campus_sigla`
+- `curso_id`, `curso_codigo`, `curso_descricao`, `curso_modalidade_id`, `curso_modalidade_descricao`, `curso_modalidade`, `curso_nivel_ensino_id`, `curso_nivel_ensino_descricao`, `curso_nivel_ensino`
+- `turma_id`, `turma_codigo`
 
 ## Campos alterados no primeiro login x nos logins seguintes
 
@@ -91,7 +94,7 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 
 | Campo | Primeiro login | Logins seguintes | Observacoes |
 | --- | --- | --- | --- |
-| user.username | Sim (criacao) | Nao | **IFRN-id** vindo do SUAP (atributo `identificacao`) |
+| user.username | Sim (criacao) | Nao | `identificacao` ou `matricula` (em minúsculas) vindo do SUAP. |
 | user.password | Sim (criacao) | Nao | Senha aleatoria local (é ignorada). |
 | user.timezone | Sim (criacao) | Nao | `99` |
 | user.confirmed | Sim (criacao) | Nao | `1` |
@@ -107,10 +110,10 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 | user.alternatename | Sim (criacao) | Nao | `null`. |
 | user.firstname | Sim | Sim | Derivado de `nome_social` ou `nome_registro`, nessa ordem. Exceto a última parte. |
 | user.lastname | Sim | Sim | Derivado de `nome_social` ou `nome_registro`, nessa ordem. Apenas a última parte. |
-| user.email | Sim | Sim | `email_preferencial` |
+| user.email | Sim | Sim | `email_preferencial` ou `email` |
 | user.auth | Sim | Sim | `suap` |
 | user.suspended | Sim | Sim | `0` |
-| user.picture | Sim (se foto) | Sim (se foto) | Atualizado via `process_new_icon` do Moodle. |
+| user.picture | Sim (se foto) | Sim (se foto) | `url_foto_150x200` $\rightarrow$ `url_foto_75x100` $\rightarrow$ `foto` via `process_new_icon`. |
 | profile_field_nome_apresentacao | Sim | Sim | `nome_usual` |
 | profile_field_nome_completo | Sim | Sim | `nome_registro` |
 | profile_field_nome_social | Sim | Sim | `nome_social` |
@@ -120,15 +123,29 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 | profile_field_campus_sigla | Sim | Sim | `campus` |
 | profile_field_last_login | Sim | Sim | JSON com o payload do SUAP. Usado para suporte. |
 | profile_field_tipo_usuario | Sim | Sim | `tipo_usuario` |
-| profile_field_data_de_nascimento | Sim | Sim | `data_de_nascimento` |
+| profile_field_eh_servidor | Sim | Sim | `tipo_vinculo == "Servidor"` |
+| profile_field_eh_aluno | Sim | Sim | `tipo_usuario == "Aluno"` |
+| profile_field_eh_prestador | Sim | Sim | `tipo_vinculo == "Prestador de Serviço"` |
+| profile_field_eh_usuarioexterno | Sim | Sim | `tipo_vinculo == "Prestador de Serviço"` |
+| profile_field_data_de_nascimento | Sim | Sim | `data_nascimento` ou `data_de_nascimento` |
 | profile_field_sexo | Sim | Sim | `sexo` |
 | profile_field_cpf | Sim | Sim | `cpf`. Descontinuado. |
+| profile_field_rg | Sim | Sim | `rg` |
 | profile_field_passaporte | Sim | Sim | `passaporte`. Descontinuado. |
+| profile_field_naturalidade | Sim | Sim | `naturalidade` |
+| profile_field_filiacao_mae | Sim | Sim | `filiacao[0]` |
+| profile_field_filiacao_pai | Sim | Sim | `filiacao[1]` |
 | profile_field_id_doc_certificado | Sim (se cpf/passaporte) | Sim (se cpf/passaporte) | `cpf` ou `passaporte`, se não houver CPF. |
 | profile_field_tipo_doc_certificado | Sim (se cpf/passaporte) | Sim (se cpf/passaporte) | `CPF` ou `Passaporte`, se não houver CPF. |
+| profile_field_curso_modalidade | Sim | Sim | `vinculos[].detalhamento.modalidade` |
+| profile_field_curso_nivel_ensino | Sim | Sim | `vinculos[].detalhamento.nivel_ensino` |
+| profile_field_vinculo_ativo | Sim | Sim | `vinculos[].detalhamento.ativo` |
+| profile_field_vinculo_cargo | Sim | Sim | `vinculos[].detalhamento.cargo` |
+| profile_field_vinculo_categoria | Sim | Sim | `vinculos[].detalhamento.categoria` |
+| profile_field_matricula_regular | Sim | Sim | `vinculo.matricula_regular` |
 | preferencia de usuario (local_suap) | Sim (criacao) | Nao | Conforme `default_user_preferences` configurado no admin do Moodle. |
 
 ## Observacoes
 - O campo `cpf` e `passaporte` estao marcados como descontinuados, mas ainda podem ser recebidos do SUAP.
-- Se a foto estiver disponivel, ela eh salva como `user.picture` via `process_new_icon`.
+- Se a foto estiver disponivel (`url_foto_150x200`, `url_foto_75x100` ou `foto`), ela eh salva como `user.picture` via `process_new_icon`.
 - `profile_field_last_login` guarda o JSON completo recebido do SUAP para suporte.
