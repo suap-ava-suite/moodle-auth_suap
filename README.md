@@ -129,13 +129,13 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 | profile_field_eh_usuarioexterno | Sim | Sim | `tipo_vinculo == "Prestador de Serviço"` |
 | profile_field_data_de_nascimento | Sim | Sim | `data_nascimento` ou `data_de_nascimento` |
 | profile_field_sexo | Sim | Sim | `sexo` |
-| profile_field_cpf | Sim | Sim | `cpf`. Descontinuado. |
+| profile_field_cpf | Sim | Sim | `cpf` (apenas números, 11 dígitos com zeros à esquerda). Descontinuado. |
 | profile_field_rg | Sim | Sim | `rg` |
 | profile_field_passaporte | Sim | Sim | `passaporte`. Descontinuado. |
 | profile_field_naturalidade | Sim | Sim | `naturalidade` |
 | profile_field_filiacao_mae | Sim | Sim | `filiacao[0]` |
 | profile_field_filiacao_pai | Sim | Sim | `filiacao[1]` |
-| profile_field_id_doc_certificado | Sim (se cpf/passaporte) | Sim (se cpf/passaporte) | `cpf` ou `passaporte`, se não houver CPF. |
+| profile_field_id_doc_certificado | Sim (se cpf/passaporte) | Sim (se cpf/passaporte) | `cpf` (mascarado com zeros à esquerda: `000.000.000-00`) ou `passaporte`, se não houver CPF. |
 | profile_field_tipo_doc_certificado | Sim (se cpf/passaporte) | Sim (se cpf/passaporte) | `CPF` ou `Passaporte`, se não houver CPF. |
 | profile_field_curso_modalidade | Sim | Sim | `vinculos[].detalhamento.modalidade` |
 | profile_field_curso_nivel_ensino | Sim | Sim | `vinculos[].detalhamento.nivel_ensino` |

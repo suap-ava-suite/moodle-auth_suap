@@ -287,10 +287,18 @@ class auth_plugin_suap extends auth_oauth2\auth
         $usuario->profile_field_last_login = \json_encode($userdata);
         $usuario->profile_field_tipo_usuario = $userdata->tipo_usuario ?? null;
 
+        $raw_cpf_digits = preg_replace('/\D/', '', $userdata->cpf ?? '');
+        $cpf_unmasked = null;
+        $cpf_masked = null;
+        if ($raw_cpf_digits !== '') {
+            $cpf_unmasked = str_pad($raw_cpf_digits, 11, '0', STR_PAD_LEFT);
+            $cpf_masked = preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $cpf_unmasked);
+        }
+
         $usuario->profile_field_data_de_nascimento = $userdata->data_nascimento ?? ($userdata->data_de_nascimento ?? null);
         $usuario->profile_field_sexo = $userdata->sexo ?? null;
         $usuario->profile_field_suap_id = $userdata->id ?? null;
-        $usuario->profile_field_cpf = $userdata->cpf ?? null;
+        $usuario->profile_field_cpf = $cpf_unmasked;
         $usuario->profile_field_rg = $userdata->rg ?? null;
         $usuario->profile_field_passaporte = $userdata->passaporte ?? null;
         $usuario->profile_field_naturalidade = $userdata->naturalidade ?? null;
@@ -301,7 +309,7 @@ class auth_plugin_suap extends auth_oauth2\auth
         }
 
         if ($usuario->profile_field_cpf || $usuario->profile_field_passaporte) {
-            $usuario->profile_field_id_doc_certificado = $usuario->profile_field_cpf ? $usuario->profile_field_cpf : $usuario->profile_field_passaporte;
+            $usuario->profile_field_id_doc_certificado = $usuario->profile_field_cpf ? $cpf_masked : $usuario->profile_field_passaporte;
             $usuario->profile_field_tipo_doc_certificado = $usuario->profile_field_cpf ? "CPF" : "Passaporte";
         }
 
