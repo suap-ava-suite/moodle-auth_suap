@@ -41,6 +41,9 @@ if ($ADMIN->fulltree) {
     auth_suap_create_setting_configtext($settings, "authorize_url", "$suap_base_url/o/authorize/");
     auth_suap_create_setting_configtext($settings, "token_url", "$suap_base_url/o/token/");
     auth_suap_create_setting_configtext($settings, "rh_eu_url", "$suap_base_url/api/rh/eu/");
+    auth_suap_create_setting_configtext($settings, "rh_meus_dados_url", "$suap_base_url/api/rh/meus-dados/");
+    auth_suap_create_setting_configtext($settings, "rh_meus_vinculos_url", "$suap_base_url/api/rh/meus-vinculos/");
+    auth_suap_create_setting_configtext($settings, "ensino_meus_dados_aluno_url", "$suap_base_url/api/ensino/meus-dados-aluno/");
     auth_suap_create_setting_configtext($settings, "logout_url", "$suap_base_url/comum/logout/");
 
     $authplugin = get_auth_plugin('suap');
