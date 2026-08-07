@@ -97,12 +97,12 @@ function auth_suap_curl_post($url, $data, $contenttype = 'application/x-www-form
  * @param array $headers Additional headers
  * @return string Response body
  */
-function auth_suap_curl_get($url, $headers = []) {
+function auth_suap_curl_get($url, $headers = [], $timeout = 30) {
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 
@@ -176,10 +176,10 @@ function auth_suap_create_setting_configtextarea($settings, $name, $default = ''
 
 
 function auth_suap_save_user_custom_field($categoryid, $shortname, $name, $datatype = 'text', $visible = 1, $p1 = null, $p2 = null) {
-    return auth_suap_get_or_create(
+    return auth_suap_create_or_update(
         'user_info_field',
         ['shortname' => $shortname],
-        ['categoryid' => $categoryid, 'name' => $name, 'description' => $name, 'descriptionformat' => 2, 'datatype' => $datatype, 'visible' => $visible, 'param1' => $p1, 'param2' => $p2, 'sortorder' => auth_suap_get_last_sort_order('user_info_field')]
+        ['categoryid' => $categoryid, 'name' => $name, 'description' => $name, 'descriptionformat' => 2, 'datatype' => $datatype, 'visible' => $visible, 'locked' => 1, 'param1' => $p1, 'param2' => $p2, 'sortorder' => auth_suap_get_last_sort_order('user_info_field')]
     );
 }
 
