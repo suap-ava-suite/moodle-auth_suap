@@ -149,3 +149,18 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 - O campo `cpf` e `passaporte` estao marcados como descontinuados, mas ainda podem ser recebidos do SUAP.
 - Se a foto estiver disponivel (`url_foto_150x200`, `url_foto_75x100` ou `foto`), ela eh salva como `user.picture` via `process_new_icon`.
 - `profile_field_last_login` guarda o JSON completo recebido do SUAP para suporte.
+
+## Como testar as actions
+
+Instale o act
+
+```bash
+curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+sudo mv ./bin/act /usr/local/bin/
+```
+
+Execute a ação localmente.
+```bash
+act -j test --matrix php:8.3 --matrix database:pgsql
+```
+
