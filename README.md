@@ -164,3 +164,35 @@ sudo mv ./bin/act /usr/local/bin/
 ```bash
 act -j test --matrix php:8.3 --matrix database:pgsql
 ```
+
+## Configuração e Uso do Pre-commit (Obrigatório)
+
+O uso do **pre-commit** é **obrigatório** neste repositório para garantir que nenhum commit seja realizado sem a validação prévia dos testes automatizados e regras de estilo do Moodle via `act`.
+
+O hook de pre-commit força a execução do comando:
+```bash
+act -j test --matrix php:8.3 --matrix database:pgsql
+```
+
+### Como ativar o Pre-commit
+
+Você pode ativar o pre-commit de duas formas:
+
+#### Opção 1: Utilizando a ferramenta `pre-commit` (Recomendado)
+1. Instale a ferramenta `pre-commit`:
+   ```bash
+   pyenv virtualenv 3.14 pre-commit
+   pyenv activate pre-commit
+   pip install pre-commit
+   ```
+2. Instale o hook no repositório:
+   ```bash
+   pre-commit install
+   ```
+
+#### Opção 2: Configurando o hook nativo do Git
+Para utilizar o hook de pre-commit disponibilizado no diretório `.githooks`:
+```bash
+git config core.hooksPath .githooks
+chmod +x .githooks/pre-commit
+```
