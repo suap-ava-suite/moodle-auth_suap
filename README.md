@@ -164,7 +164,3 @@ sudo mv ./bin/act /usr/local/bin/
 ```bash
 act -j test --matrix php:8.3 --matrix database:pgsql
 ```
-
-> **Nota:** As branches do Moodle no `ci.yml` seguem o padrão oficial de 3 dígitos (ex: `MOODLE_405_STABLE` para Moodle 4.5).
-
-

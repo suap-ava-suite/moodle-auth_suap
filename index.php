@@ -15,11 +15,16 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Entry point redirecting to SUAP authentication login.
  *
- * @category    auth
  * @package     auth_suap
+ * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
+require_login(null, false);
 
-header("Location: {$CFG->wwwroot}/auth/suap/login.php", true, 302);
+$PAGE->set_url(new moodle_url('/auth/suap/index.php'));
+
+redirect(new moodle_url('/auth/suap/login.php'));

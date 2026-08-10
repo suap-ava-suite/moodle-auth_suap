@@ -18,7 +18,6 @@
  * Code to be executed after the plugin's database scheme has been installed is defined here.
  *
  * @package     auth_suap
- * @category    upgrade
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -26,6 +25,11 @@
 defined('MOODLE_INTERNAL') || die();
 require_once(__DIR__ . '/migrate.php');
 
+/**
+ * Custom installation procedure.
+ *
+ * @return void
+ */
 function xmldb_auth_suap_install() {
     auth_suap_bulk_user_custom_field();
 }

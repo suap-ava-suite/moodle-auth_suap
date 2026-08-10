@@ -18,7 +18,6 @@
  * Plugin strings are defined here.
  *
  * @package     auth_suap
- * @category    string
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -33,7 +32,9 @@ $string['client_id'] = 'ID do Cliente OAuth2';
 $string['client_id_desc'] = "Obtenha no SUAP: Gestão de Tecnologia > Serviços > Aplicações OAuth2. Registre sua instância do Moodle com tipo de autorização 'Código de autorização' (cliente público) e defina o URI de redirecionamento para: {$CFG->wwwroot}/auth/suap/authenticate.php";
 $string['client_secret'] = 'Segredo do Cliente OAuth2';
 $string['client_secret_desc'] = "Este segredo é exibido apenas uma vez quando você cria a aplicação OAuth2 no SUAP. Salve imediatamente pois não pode ser recuperado depois. Para gerar um novo segredo, registre uma nova aplicação no SUAP.";
-$string['logout_url'] = "URL de Logout do SUAP";
+$string['ensino_meus_dados_aluno_url'] = "Ponto de Acesso da API Ensino/Meus Dados Aluno do SUAP";
+$string['ensino_meus_dados_aluno_url_desc'] = "Ponto de acesso da API do SUAP para recuperar dados acadêmicos do aluno (tipicamente https://suap.ifrn.edu.br/api/ensino/meus-dados-aluno/)";
+$string['logout_url'] = "Ponto de Acesso de Logout do SUAP";
 $string['logout_url_desc'] = "Ponto de acesso de logout do SUAP para encerrar a sessão (tipicamente https://suap.ifrn.edu.br/o/logout/)";
 $string['pluginname'] = 'Autenticação OAuth2 SUAP';
 $string['privacy:metadata:suap:cpf'] = 'CPF do usuário (documento fiscal brasileiro)';
@@ -49,7 +50,5 @@ $string['rh_meus_dados_url'] = "Ponto de Acesso da API RH/Meus Dados do SUAP";
 $string['rh_meus_dados_url_desc'] = "Ponto de acesso da API do SUAP para recuperar dados pessoais e vínculo principal do usuário (tipicamente https://suap.ifrn.edu.br/api/rh/meus-dados/)";
 $string['rh_meus_vinculos_url'] = "Ponto de Acesso da API RH/Meus Vínculos do SUAP";
 $string['rh_meus_vinculos_url_desc'] = "Ponto de acesso da API do SUAP para recuperar a lista de vínculos do usuário (tipicamente https://suap.ifrn.edu.br/api/rh/meus-vinculos/)";
-$string['ensino_meus_dados_aluno_url'] = "Ponto de Acesso da API Ensino/Meus Dados Aluno do SUAP";
-$string['ensino_meus_dados_aluno_url_desc'] = "Ponto de acesso da API do SUAP para recuperar dados acadêmicos do aluno (tipicamente https://suap.ifrn.edu.br/api/ensino/meus-dados-aluno/)";
 $string['token_url'] = "Ponto de Acesso de Token OAuth2 do SUAP";
 $string['token_url_desc'] = "URL do ponto de acesso de troca de token OAuth2 do SUAP (tipicamente https://suap.ifrn.edu.br/o/token/)";

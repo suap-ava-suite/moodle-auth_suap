@@ -15,36 +15,38 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * SUAP authentication logout page.
  *
- * @category    auth
  * @package     auth_suap
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 require_once('../../config.php');
+require_login(null, false);
 require_once("$CFG->dirroot/auth/suap/locallib.php");
+
+$PAGE->set_url(new moodle_url('/auth/suap/logout.php'));
 
 $config = get_auth_suap_config();
 \core\session\manager::init_empty_session();
-?>
-<html>
 
+$logouturl = htmlspecialchars($config->logout_url);
+
+echo '<html>
 <head>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 </head>
-
 <body>
-    <p style='text-align: center; margin-top: 2rem;'>Para sair completamente é necessário que você confirmar no botão
-        abaixo.
-        <span style='text-align: center; font-size: 90%; padding: 0 2rem; font-style: italic; display: block;'>Assim
+    <p style="text-align: center; margin-top: 2rem;">Para sair completamente é necessário que você confirmar no botão abaixo.
+        <span style="text-align: center; font-size: 90%; padding: 0 2rem; font-style: italic; display: block;">Assim
             você sairá do SUAP e será reencaminhado para a página de acesso ao SUAP.</span>
     </p>
-    <p style='text-align: center;'><a href="<?php echo $config->logout_url ?>" class='btn btn-primary'>Confirmar saída</a></p>
-    <p style='text-align: center; margin-top: 2rem;'>Ou você pode <a href="<?php echo $CFG->wwwroot; ?>">continuar
-            conectado</a>.
+    <p style="text-align: center;">
+        <a href="' . $logouturl . '" class="btn btn-primary">Confirmar saída</a>
     </p>
+    <p style="text-align: center; margin-top: 2rem;">Ou você pode <a href="' . $CFG->wwwroot . '">continuar conectado</a>.</p>
 </body>
-
 </html>
+';

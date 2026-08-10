@@ -18,7 +18,6 @@
  * Plugin strings are defined here.
  *
  * @package     auth_suap
- * @category    string
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -33,6 +32,8 @@ $string['client_id'] = 'OAuth2 Client ID';
 $string['client_id_desc'] = "Obtain from SUAP: Technology Management > Services > OAuth2 Applications. Register your Moodle instance with authorization type 'Authorization code' (public client) and set redirect URI to: {$CFG->wwwroot}/auth/suap/authenticate.php";
 $string['client_secret'] = 'OAuth2 Client Secret';
 $string['client_secret_desc'] = "This secret is displayed only once when you create the OAuth2 application in SUAP. Save it immediately as it cannot be retrieved later. To generate a new secret, register a new application in SUAP.";
+$string['ensino_meus_dados_aluno_url'] = 'SUAP Ensino/Meus Dados Aluno API Endpoint';
+$string['ensino_meus_dados_aluno_url_desc'] = "SUAP API endpoint for retrieving student academic data (typically https://suap.ifrn.edu.br/api/ensino/meus-dados-aluno/)";
 $string['logout_url'] = 'SUAP Logout URL';
 $string['logout_url_desc'] = "SUAP logout endpoint for session termination (typically https://suap.ifrn.edu.br/o/logout/)";
 $string['pluginname'] = 'SUAP OAuth2 Authentication';
@@ -49,7 +50,5 @@ $string['rh_meus_dados_url'] = 'SUAP RH/Meus Dados API Endpoint';
 $string['rh_meus_dados_url_desc'] = "SUAP API endpoint for retrieving user personal data and primary relationship (typically https://suap.ifrn.edu.br/api/rh/meus-dados/)";
 $string['rh_meus_vinculos_url'] = 'SUAP RH/Meus Vínculos API Endpoint';
 $string['rh_meus_vinculos_url_desc'] = "SUAP API endpoint for retrieving user relationships list (typically https://suap.ifrn.edu.br/api/rh/meus-vinculos/)";
-$string['ensino_meus_dados_aluno_url'] = 'SUAP Ensino/Meus Dados Aluno API Endpoint';
-$string['ensino_meus_dados_aluno_url_desc'] = "SUAP API endpoint for retrieving student academic data (typically https://suap.ifrn.edu.br/api/ensino/meus-dados-aluno/)";
 $string['token_url'] = 'SUAP Token Endpoint';
 $string['token_url_desc'] = "SUAP OAuth2 token exchange URL (typically https://suap.ifrn.edu.br/o/token/)";

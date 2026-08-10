@@ -15,17 +15,15 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Local helper functions for auth_suap.
  *
- * @category   auth
  * @package     auth_suap
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
- * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
- * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
- * Make HTTP POST request using cURL
+ * Make HTTP POST request using cURL.
  *
  * @param string $url URL to post to
  * @param array|string $data Data to send (array will be form-encoded, string sent as-is)
@@ -43,12 +41,12 @@ function auth_suap_curl_post($url, $data, $contenttype = 'application/x-www-form
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
     curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 
-    // Force HTTP/1.1 instead of HTTP/2
+    // Force HTTP/1.1 instead of HTTP/2.
     curl_setopt($ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 
     // Prepare data based on content type.
     if ($contenttype === 'application/x-www-form-urlencoded' && is_array($data)) {
-        // Use PHP_QUERY_RFC3986 to encode with & instead of &amp;
+        // Use PHP_QUERY_RFC3986 to encode with & instead of &amp;.
         $postdata = http_build_query($data, '', '&', PHP_QUERY_RFC3986);
     } else if ($contenttype === 'application/json' && is_array($data)) {
         $postdata = json_encode($data);
@@ -89,12 +87,12 @@ function auth_suap_curl_post($url, $data, $contenttype = 'application/x-www-form
     return $response;
 }
 
-
 /**
- * Make HTTP GET request using cURL
+ * Make HTTP GET request using cURL.
  *
  * @param string $url URL to get
  * @param array $headers Additional headers
+ * @param int $timeout Request timeout in seconds
  * @return string Response body
  */
 function auth_suap_curl_get($url, $headers = [], $timeout = 30) {
@@ -128,14 +126,26 @@ function auth_suap_curl_get($url, $headers = [], $timeout = 30) {
     return $response;
 }
 
-
+/**
+ * Get next sort order value for given database table.
+ *
+ * @param string $tablename Database table name.
+ * @return int Next sort order value.
+ */
 function auth_suap_get_last_sort_order($tablename) {
     global $DB;
     $l = $DB->get_record_sql('SELECT coalesce(max(sortorder), 0) + 1 as sortorder from {' . $tablename . '}');
     return $l->sortorder;
 }
 
-
+/**
+ * Get existing record or create new record.
+ *
+ * @param string $tablename Table name.
+ * @param array $keys Criteria to find existing record.
+ * @param array $values Values to set on creation.
+ * @return stdClass Record object.
+ */
 function auth_suap_get_or_create($tablename, $keys, $values) {
     global $DB;
     $record = $DB->get_record($tablename, $keys);
@@ -146,8 +156,17 @@ function auth_suap_get_or_create($tablename, $keys, $values) {
     return $record;
 }
 
-
-function auth_suap_create_or_update($tablename, $keys, $inserts, $updates = [], $insert_only = []) {
+/**
+ * Create or update database record.
+ *
+ * @param string $tablename Table name.
+ * @param array $keys Criteria keys.
+ * @param array $inserts Insert attributes.
+ * @param array $updates Update attributes.
+ * @param array $insertonly Insert-only attributes.
+ * @return stdClass Record object.
+ */
+function auth_suap_create_or_update($tablename, $keys, $inserts, $updates = [], $insertonly = []) {
     global $DB;
     $record = $DB->get_record($tablename, $keys);
     if ($record) {
@@ -156,34 +175,92 @@ function auth_suap_create_or_update($tablename, $keys, $inserts, $updates = [], 
         }
         $DB->update_record($tablename, $record);
     } else {
-        $record = (object)array_merge($keys, $inserts, $insert_only);
+        $record = (object)array_merge($keys, $inserts, $insertonly);
         $record->id = $DB->insert_record($tablename, $record);
     }
     return $record;
 }
 
-
+/**
+ * Helper to add a text configuration setting to admin page.
+ *
+ * @param admin_settingpage $settings Settings page.
+ * @param string $name Setting name.
+ * @param string $default Default value.
+ * @return void
+ */
 function auth_suap_create_setting_configtext($settings, $name, $default = '') {
-    $theme_name = 'auth_suap';
-    $settings->add(new admin_setting_configtext("$theme_name/$name", get_string($name, $theme_name), get_string("{$name}_desc", $theme_name), $default));
+    $themename = 'auth_suap';
+    $settings->add(new admin_setting_configtext(
+        "$themename/$name",
+        get_string($name, $themename),
+        get_string("{$name}_desc", $themename),
+        $default
+    ));
 }
 
-
+/**
+ * Helper to add a textarea configuration setting to admin page.
+ *
+ * @param admin_settingpage $settings Settings page.
+ * @param string $name Setting name.
+ * @param string $default Default value.
+ * @return void
+ */
 function auth_suap_create_setting_configtextarea($settings, $name, $default = '') {
-    $theme_name = 'auth_suap';
-    $settings->add(new admin_setting_configtextarea("$theme_name/$name", get_string($name, $theme_name), get_string("{$name}_desc", $theme_name), $default));
+    $themename = 'auth_suap';
+    $settings->add(new admin_setting_configtextarea(
+        "$themename/$name",
+        get_string($name, $themename),
+        get_string("{$name}_desc", $themename),
+        $default
+    ));
 }
 
-
-function auth_suap_save_user_custom_field($categoryid, $shortname, $name, $datatype = 'text', $visible = 1, $p1 = null, $p2 = null) {
+/**
+ * Save custom user profile field.
+ *
+ * @param int $categoryid Category ID.
+ * @param string $shortname Field shortname.
+ * @param string $name Field name.
+ * @param string $datatype Data type.
+ * @param int $visible Visibility setting.
+ * @param mixed $p1 Param 1.
+ * @param mixed $p2 Param 2.
+ * @return stdClass Created/updated field record.
+ */
+function auth_suap_save_user_custom_field(
+    $categoryid,
+    $shortname,
+    $name,
+    $datatype = 'text',
+    $visible = 1,
+    $p1 = null,
+    $p2 = null
+) {
     return auth_suap_create_or_update(
         'user_info_field',
         ['shortname' => $shortname],
-        ['categoryid' => $categoryid, 'name' => $name, 'description' => $name, 'descriptionformat' => 2, 'datatype' => $datatype, 'visible' => $visible, 'locked' => 1, 'param1' => $p1, 'param2' => $p2, 'sortorder' => auth_suap_get_last_sort_order('user_info_field')]
+        [
+            'categoryid' => $categoryid,
+            'name' => $name,
+            'description' => $name,
+            'descriptionformat' => 2,
+            'datatype' => $datatype,
+            'visible' => $visible,
+            'locked' => 1,
+            'param1' => $p1,
+            'param2' => $p2,
+            'sortorder' => auth_suap_get_last_sort_order('user_info_field'),
+        ]
     );
 }
 
-
+/**
+ * Get plugin configuration object.
+ *
+ * @return stdClass Configuration object.
+ */
 function get_auth_suap_config() {
     return get_config('auth_suap');
 }

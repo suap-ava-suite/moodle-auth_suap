@@ -15,8 +15,8 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Authentication plugin for SUAP OAuth2.
  *
- * @category    auth
  * @package     auth_suap
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
@@ -30,15 +30,32 @@ require_once("$CFG->dirroot/lib/authlib.php");
 require_once("$CFG->dirroot/lib/classes/user.php");
 require_once("$CFG->dirroot/auth/suap/locallib.php");
 
-
-class auth_plugin_suap extends auth_oauth2\auth
-{
+/**
+ * SUAP authentication plugin class.
+ *
+ * @package     auth_suap
+ * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class auth_plugin_suap extends auth_oauth2\auth {
+    /** @var string Authentication type */
     public $authtype;
+
+    /** @var string Role authentication name */
     public $roleauth;
+
+    /** @var string Tag used in log messages */
     public $errorlogtag;
+
+    /** @var stdClass Plugin configuration settings */
     public $config;
+
+    /** @var stdClass|null User object */
     public $usuario;
 
+    /**
+     * Constructor.
+     */
     public function __construct() {
         $this->authtype = 'suap';
         $this->roleauth = 'auth_suap';
@@ -47,27 +64,43 @@ class auth_plugin_suap extends auth_oauth2\auth
         $this->usuario = null;
     }
 
-    public function user_login($username, $password) {
-        return false;
-    }
-
+    /**
+     * Can user change password (disabled for OAuth2).
+     *
+     * @return bool
+     */
     public function can_change_password() {
         return false;
     }
 
+    /**
+     * Is this internal authentication?
+     *
+     * @return bool
+     */
     public function is_internal() {
         return false;
     }
 
-    function postlogout_hook($user) {
+    /**
+     * Post-logout hook.
+     *
+     * @param stdClass $user User object
+     * @return int
+     */
+    public function postlogout_hook($user) {
         global $CFG;
         if ($user->auth != 'suap') {
             return 0;
         }
-        $config = get_auth_suap_config();
         redirect($CFG->wwwroot . '/auth/suap/logout.php');
     }
 
+    /**
+     * Initiate OAuth2 login redirect.
+     *
+     * @return void
+     */
     public function login() {
         global $CFG, $USER, $SESSION;
 
@@ -84,11 +117,18 @@ class auth_plugin_suap extends auth_oauth2\auth
             redirect($next);
         } else {
             $SESSION->next_after_next = $next;
-            $redirect_uri = urlencode("$CFG->wwwroot/auth/suap/authenticate.php");
-            redirect("{$this->config->authorize_url}?response_type=code&client_id={$this->config->client_id}&redirect_uri=$redirect_uri");
+            $redirecturi = urlencode("$CFG->wwwroot/auth/suap/authenticate.php");
+            $url = "{$this->config->authorize_url}?response_type=code&client_id={$this->config->client_id}"
+                . "&redirect_uri=$redirecturi";
+            redirect($url);
         }
     }
 
+    /**
+     * Handle authentication callback from SUAP.
+     *
+     * @return void
+     */
     public function authenticate() {
         global $CFG, $USER;
 
@@ -98,11 +138,11 @@ class auth_plugin_suap extends auth_oauth2\auth
 
         $code = required_param('code', PARAM_RAW);
 
-        $token_response = "";
-        $user_data_response = "";
+        $tokenresponse = "";
+        $userdataresponse = "";
         try {
-            // Exchange code for access token
-            $token_response = auth_suap_curl_post(
+            // Exchange code for access token.
+            $tokenresponse = auth_suap_curl_post(
                 $this->config->token_url,
                 [
                     'grant_type' => 'authorization_code',
@@ -112,46 +152,47 @@ class auth_plugin_suap extends auth_oauth2\auth
                     'client_secret' => $this->config->client_secret,
                 ]
             );
-            $auth = json_decode($token_response);
+            $auth = json_decode($tokenresponse);
             if (empty($auth) || !is_object($auth) || empty($auth->access_token)) {
-                $error_details = '';
+                $errordetails = '';
                 if (is_object($auth)) {
-                    $error_details = $auth->error_description ?? ($auth->error ?? '');
+                    $errordetails = $auth->error_description ?? ($auth->error ?? '');
                 }
-                throw new Exception("Resposta de token inválida do SUAP: " . ($error_details ?: $token_response));
+                throw new Exception("Resposta de token inválida do SUAP: " . ($errordetails ?: $tokenresponse));
             }
 
-            // Get user data from SUAP (/api/rh/eu/)
-            $rh_eu_url = !empty($this->config->rh_eu_url) ? $this->config->rh_eu_url : 'https://suap.ifrn.edu.br/api/rh/eu/';
+            // Get user data from SUAP (/api/rh/eu/).
+            $rheuurl = !empty($this->config->rh_eu_url) ? $this->config->rh_eu_url : 'https://suap.ifrn.edu.br/api/rh/eu/';
             $headers = [
                 "Authorization: Bearer {$auth->access_token}",
                 "x-api-key: {$this->config->client_secret}",
                 "Accept: application/json",
             ];
 
-            $user_data_response = auth_suap_curl_get(
-                "{$rh_eu_url}?scope=" . urlencode('identificacao documentos_pessoais'),
+            $userdataresponse = auth_suap_curl_get(
+                "{$rheuurl}?scope=" . urlencode('identificacao documentos_pessoais'),
                 $headers
             );
-            if (empty($user_data_response) || strpos($user_data_response, '"identificacao"') === false) {
+            if (empty($userdataresponse) || strpos($userdataresponse, '"identificacao"') === false) {
                 throw new Exception("Erro ao tentar obter dados do SUAP.");
             }
 
-            $userdata = json_decode($user_data_response);
+            $userdata = json_decode($userdataresponse);
             if (empty($userdata) || !is_object($userdata)) {
                 throw new Exception("Dados de usuário retornados pelo SUAP são inválidos.");
             }
 
-            $suap_base = getenv('SUAP_BASE_URL') ?: 'https://suap.ifrn.edu.br';
+            $suapbase = getenv('SUAP_BASE_URL') ?: 'https://suap.ifrn.edu.br';
 
-            // Get personal data from SUAP (/api/rh/meus-dados/)
+            // Get personal data from SUAP (/api/rh/meus-dados/).
             try {
-                $meus_dados_url = !empty($this->config->rh_meus_dados_url) ? $this->config->rh_meus_dados_url : "{$suap_base}/api/rh/meus-dados/";
-                $meus_dados_response = auth_suap_curl_get($meus_dados_url, $headers);
-                if (!empty($meus_dados_response)) {
-                    $meus_dados = json_decode($meus_dados_response);
-                    if (!empty($meus_dados) && is_object($meus_dados)) {
-                        foreach ($meus_dados as $key => $val) {
+                $meusdadosurl = !empty($this->config->rh_meus_dados_url) ?
+                    $this->config->rh_meus_dados_url : "{$suapbase}/api/rh/meus-dados/";
+                $meusdadosresponse = auth_suap_curl_get($meusdadosurl, $headers);
+                if (!empty($meusdadosresponse)) {
+                    $meusdados = json_decode($meusdadosresponse);
+                    if (!empty($meusdados) && is_object($meusdados)) {
+                        foreach ($meusdados as $key => $val) {
                             if ($key === 'tipo_sanguineo') {
                                 continue;
                             }
@@ -162,35 +203,40 @@ class auth_plugin_suap extends auth_oauth2\auth
                     }
                 }
             } catch (\Throwable $e) {
-                error_log('[AUTH SUAP] Warning ao obter /api/rh/meus-dados/: ' . $e->getMessage());
+                debugging('[AUTH SUAP] Warning ao obter /api/rh/meus-dados/: ' . $e->getMessage(), DEBUG_DEVELOPER);
             }
 
-            // Get relationships list from SUAP (/api/rh/meus-vinculos/)
+            // Get relationships list from SUAP (/api/rh/meus-vinculos/).
             try {
-                $meus_vinculos_url = !empty($this->config->rh_meus_vinculos_url) ? $this->config->rh_meus_vinculos_url : "{$suap_base}/api/rh/meus-vinculos/";
-                $meus_vinculos_response = auth_suap_curl_get($meus_vinculos_url, $headers);
-                if (!empty($meus_vinculos_response)) {
-                    $meus_vinculos = json_decode($meus_vinculos_response);
-                    if (!empty($meus_vinculos) && is_object($meus_vinculos) && isset($meus_vinculos->results) && is_array($meus_vinculos->results)) {
-                        $userdata->vinculos = $meus_vinculos->results;
+                $meusvinculosurl = !empty($this->config->rh_meus_vinculos_url) ?
+                    $this->config->rh_meus_vinculos_url : "{$suapbase}/api/rh/meus-vinculos/";
+                $meusvinculosresponse = auth_suap_curl_get($meusvinculosurl, $headers);
+                if (!empty($meusvinculosresponse)) {
+                    $meusvinculos = json_decode($meusvinculosresponse);
+                    if (
+                        !empty($meusvinculos) && is_object($meusvinculos)
+                        && isset($meusvinculos->results) && is_array($meusvinculos->results)
+                    ) {
+                        $userdata->vinculos = $meusvinculos->results;
                     }
                 }
             } catch (\Throwable $e) {
-                error_log('[AUTH SUAP] Warning ao obter /api/rh/meus-vinculos/: ' . $e->getMessage());
+                debugging('[AUTH SUAP] Warning ao obter /api/rh/meus-vinculos/: ' . $e->getMessage(), DEBUG_DEVELOPER);
             }
 
-            // Get student data from SUAP (/api/ensino/meus-dados-aluno/)
+            // Get student data from SUAP (/api/ensino/meus-dados-aluno/).
             if (isset($userdata->tipo_usuario) && $userdata->tipo_usuario === 'Aluno') {
                 try {
-                    $ensino_aluno_url = !empty($this->config->ensino_meus_dados_aluno_url) ? $this->config->ensino_meus_dados_aluno_url : "{$suap_base}/api/ensino/meus-dados-aluno/";
-                    $ensino_aluno_response = auth_suap_curl_get($ensino_aluno_url, $headers);
-                    if (!empty($ensino_aluno_response)) {
-                        $ensino_aluno = json_decode($ensino_aluno_response);
-                        if (!empty($ensino_aluno) && is_object($ensino_aluno)) {
+                    $ensinoalunourl = !empty($this->config->ensino_meus_dados_aluno_url) ?
+                        $this->config->ensino_meus_dados_aluno_url : "{$suapbase}/api/ensino/meus-dados-aluno/";
+                    $ensinoalunoresponse = auth_suap_curl_get($ensinoalunourl, $headers);
+                    if (!empty($ensinoalunoresponse)) {
+                        $ensinoaluno = json_decode($ensinoalunoresponse);
+                        if (!empty($ensinoaluno) && is_object($ensinoaluno)) {
                             if (!isset($userdata->vinculo) || !is_object($userdata->vinculo)) {
                                 $userdata->vinculo = new \stdClass();
                             }
-                            foreach ($ensino_aluno as $key => $val) {
+                            foreach ($ensinoaluno as $key => $val) {
                                 if (in_array($key, ['email_academico', 'email_escolar', 'cpf'])) {
                                     continue;
                                 }
@@ -199,52 +245,54 @@ class auth_plugin_suap extends auth_oauth2\auth
                         }
                     }
                 } catch (\Throwable $e) {
-                    error_log('[AUTH SUAP] Warning ao obter /api/ensino/meus-dados-aluno/: ' . $e->getMessage());
+                    debugging('[AUTH SUAP] Warning ao obter /api/ensino/meus-dados-aluno/: ' . $e->getMessage(), DEBUG_DEVELOPER);
                 }
             }
 
             $this->create_or_update_user($userdata);
         } catch (\Throwable $e) {
-            // Log error for administrators
-            error_log('[AUTH SUAP] OAuth2 Authentication Error: ' . $e->getMessage());
+            // Log error for administrators.
+            debugging('[AUTH SUAP] OAuth2 Authentication Error: ' . $e->getMessage(), DEBUG_DEVELOPER);
 
-            // Display user-friendly error message
-            print_error('auth_failure', 'auth_suap', '', null, $e->getMessage());
-            die();
+            // Display user-friendly error message.
+            throw new \moodle_exception('auth_failure', 'auth_suap', '', null, $e->getMessage());
         }
     }
 
-    function create_or_update_user($userdata) {
+    /**
+     * Create or update user account from SUAP user data.
+     *
+     * @param stdClass $userdata User data object from SUAP API.
+     * @return void
+     * @throws moodle_exception
+     */
+    public function create_or_update_user($userdata) {
         global $DB, $SESSION, $CFG;
 
-        $identificador = !empty($userdata->identificacao) ? $userdata->identificacao : (!empty($userdata->matricula) ? $userdata->matricula : null);
+        $identificador = !empty($userdata->identificacao) ?
+            $userdata->identificacao : (!empty($userdata->matricula) ? $userdata->matricula : null);
         if (empty($identificador)) {
-            echo "<p>Erro ao integrar com o SUAP: identificação ou matrícula ausente.</p>";
-            echo "<pre style='display: None'>";
-            var_dump($userdata);
-            echo "</pre>";
-            die();
+            throw new \moodle_exception('identificacao_ausente', 'auth_suap');
         }
         $username = strtolower($identificador);
         $usuario = $DB->get_record("user", ["username" => $username]);
 
         $parts = explode(' ', $userdata->nome_registro ?? '');
-        $primeiro_nome = implode(' ', array_slice($parts, 0, -1));
-        $ultimo_nome = end($parts);
+        $primeironome = implode(' ', array_slice($parts, 0, -1));
+        $ultimonome = end($parts);
         $email = $userdata->email_preferencial ?? ($userdata->email ?? $userdata->email_secundario);
 
         if (!$usuario) {
             $usuario = (object)[
                 'username' => $username,
                 'idnumber' => $identificador,
-                'firstname' => $primeiro_nome,
-                'lastname' => $ultimo_nome,
+                'firstname' => $primeironome,
+                'lastname' => $ultimonome,
                 'email' => $email,
                 'auth' => 'suap',
                 'suspended' => 0,
                 'password' => '!aA1' . uniqid(),
                 'timezone' => '99',
-                // 'lang'=>'pt_br',
                 'confirmed' => 1,
                 'mnethostid' => 1,
                 'policyagreed' => 0,
@@ -259,9 +307,9 @@ class auth_plugin_suap extends auth_oauth2\auth
             ];
             $usuario->id = \user_create_user($usuario);
 
-            $default_user_preferences = get_config('local/suap', 'default_user_preferences');
-            if ($default_user_preferences) {
-                foreach (preg_split('/\r\n|\r|\n/', $default_user_preferences) as $preference) {
+            $defaultprefs = get_config('local/suap', 'default_user_preferences');
+            if ($defaultprefs) {
+                foreach (preg_split('/\r\n|\r|\n/', $defaultprefs) as $preference) {
                     $parts = explode("=", $preference);
                     if (count($parts) == 2) {
                         \set_user_preference($parts[0], $parts[1], $usuario);
@@ -270,13 +318,13 @@ class auth_plugin_suap extends auth_oauth2\auth
             }
         }
 
-        $usuario->firstname = $primeiro_nome;
+        $usuario->firstname = $primeironome;
         $usuario->lastname = $userdata->ultimo_nome;
         $usuario->email = $email;
         $usuario->auth = 'suap';
         $usuario->suspended = 0;
 
-        // Custom Profile Fields
+        // Custom Profile Fields.
         $usuario->profile_field_nome_apresentacao = $userdata->nome_usual ?? null;
         $usuario->profile_field_nome_completo = $userdata->nome_registro ?? ($userdata->nome ?? null);
         $usuario->profile_field_nome_social = $userdata->nome_social ?? null;
@@ -287,18 +335,18 @@ class auth_plugin_suap extends auth_oauth2\auth
         $usuario->profile_field_last_login = \json_encode($userdata);
         $usuario->profile_field_tipo_usuario = $userdata->tipo_usuario ?? null;
 
-        $raw_cpf_digits = preg_replace('/\D/', '', $userdata->cpf ?? '');
-        $cpf_unmasked = null;
-        $cpf_masked = null;
-        if ($raw_cpf_digits !== '') {
-            $cpf_unmasked = str_pad($raw_cpf_digits, 11, '0', STR_PAD_LEFT);
-            $cpf_masked = preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $cpf_unmasked);
+        $rawcpfdigits = preg_replace('/\D/', '', $userdata->cpf ?? '');
+        $cpfunmasked = null;
+        $cpfmasked = null;
+        if ($rawcpfdigits !== '') {
+            $cpfunmasked = str_pad($rawcpfdigits, 11, '0', STR_PAD_LEFT);
+            $cpfmasked = preg_replace('/(\d{3})(\d{3})(\d{3})(\d{2})/', '$1.$2.$3-$4', $cpfunmasked);
         }
 
         $usuario->profile_field_data_de_nascimento = $userdata->data_nascimento ?? ($userdata->data_de_nascimento ?? null);
         $usuario->profile_field_sexo = $userdata->sexo ?? null;
         $usuario->profile_field_suap_id = $userdata->id ?? null;
-        $usuario->profile_field_cpf = $cpf_unmasked;
+        $usuario->profile_field_cpf = $cpfunmasked;
         $usuario->profile_field_rg = $userdata->rg ?? null;
         $usuario->profile_field_passaporte = $userdata->passaporte ?? null;
         $usuario->profile_field_naturalidade = $userdata->naturalidade ?? null;
@@ -309,35 +357,37 @@ class auth_plugin_suap extends auth_oauth2\auth
         }
 
         if ($usuario->profile_field_cpf || $usuario->profile_field_passaporte) {
-            $usuario->profile_field_id_doc_certificado = $usuario->profile_field_cpf ? $cpf_masked : $usuario->profile_field_passaporte;
+            $usuario->profile_field_id_doc_certificado = $usuario->profile_field_cpf ?
+                $cpfmasked : $usuario->profile_field_passaporte;
             $usuario->profile_field_tipo_doc_certificado = $usuario->profile_field_cpf ? "CPF" : "Passaporte";
         }
 
-        // Flags de vínculo
-        $tipo_vinculo = $userdata->tipo_vinculo ?? '';
-        $tipo_usuario = $userdata->tipo_usuario ?? '';
-        $usuario->profile_field_eh_servidor = $tipo_vinculo == 'Servidor';
-        $usuario->profile_field_eh_aluno = $tipo_usuario === 'Aluno';
-        $usuario->profile_field_eh_prestador = $tipo_vinculo === 'Prestador de Serviço';
-        $usuario->profile_field_eh_usuarioexterno = $tipo_vinculo === 'Prestador de Serviço';
+        // Flags de vínculo.
+        $tipovinculo = $userdata->tipo_vinculo ?? '';
+        $tipousuario = $userdata->tipo_usuario ?? '';
+        $usuario->profile_field_eh_servidor = $tipovinculo == 'Servidor';
+        $usuario->profile_field_eh_aluno = $tipousuario === 'Aluno';
+        $usuario->profile_field_eh_prestador = $tipovinculo === 'Prestador de Serviço';
+        $usuario->profile_field_eh_usuarioexterno = $tipovinculo === 'Prestador de Serviço';
 
-        // Vínculo equivalente & detalhamento
-        $vinculo_equivalente = null;
+        // Vínculo equivalente & detalhamento.
+        $vinculoequivalente = null;
         if (property_exists($userdata, 'vinculos') && is_array($userdata->vinculos) && !empty($userdata->vinculos)) {
             foreach ($userdata->vinculos as $v) {
-                $v_id = $v->identificador ?? ($v->matricula ?? null);
-                if (!empty($v_id) && $v_id == $identificador) {
-                    $vinculo_equivalente = $v;
+                $vid = $v->identificador ?? ($v->matricula ?? null);
+                if (!empty($vid) && $vid == $identificador) {
+                    $vinculoequivalente = $v;
                     break;
                 }
             }
         }
 
-        if ($vinculo_equivalente) {
-            if (property_exists($vinculo_equivalente, 'estrangeiro')) {
-                $usuario->profile_field_eh_estrangeiro = $vinculo_equivalente->estrangeiro;
+        if ($vinculoequivalente) {
+            if (property_exists($vinculoequivalente, 'estrangeiro')) {
+                $usuario->profile_field_eh_estrangeiro = $vinculoequivalente->estrangeiro;
             }
-            $detalhamento = property_exists($vinculo_equivalente, 'detalhamento') ? $vinculo_equivalente->detalhamento : null;
+            $detalhamento = property_exists($vinculoequivalente, 'detalhamento') ?
+                $vinculoequivalente->detalhamento : null;
             if ($detalhamento) {
                 $usuario->profile_field_curso_modalidade = $detalhamento->modalidade ?? null;
                 $usuario->profile_field_curso_nivel_ensino = $detalhamento->nivel_ensino ?? null;
@@ -347,7 +397,7 @@ class auth_plugin_suap extends auth_oauth2\auth
             }
         }
 
-        // Vínculo corrente
+        // Vínculo corrente.
         if (property_exists($userdata, 'vinculo') && is_object($userdata->vinculo)) {
             $usuario->profile_field_matricula_regular = $userdata->vinculo->matricula_regular ?? 0;
             $usuario->profile_field_situacao_vinculo = $userdata->vinculo->situacao ?? null;
@@ -378,18 +428,18 @@ class auth_plugin_suap extends auth_oauth2\auth
 
         $this->update_user_record($this->usuario->username);
 
-        $foto_sources = [];
+        $fotosources = [];
         if (!empty($userdata->url_foto_150x200)) {
-            $foto_sources[] = $userdata->url_foto_150x200;
+            $fotosources[] = $userdata->url_foto_150x200;
         }
         if (!empty($userdata->url_foto_75x100)) {
-            $foto_sources[] = $userdata->url_foto_75x100;
+            $fotosources[] = $userdata->url_foto_75x100;
         }
         if (!empty($userdata->foto)) {
-            $foto_sources[] = $userdata->foto;
+            $fotosources[] = $userdata->foto;
         }
-        if (!empty($foto_sources)) {
-            $this->update_picture($usuario, $foto_sources);
+        if (!empty($fotosources)) {
+            $this->update_picture($usuario, $fotosources);
         }
 
         $usuario = $DB->get_record("user", ["username" => $username]);
@@ -399,16 +449,23 @@ class auth_plugin_suap extends auth_oauth2\auth
         redirect($next);
     }
 
-    function update_picture($usuario, $foto_sources) {
+    /**
+     * Fetch user photo from SUAP and update user picture in Moodle.
+     *
+     * @param stdClass $usuario User object.
+     * @param array $fotosources List of photo URLs.
+     * @return void
+     */
+    public function update_picture($usuario, $fotosources) {
         global $CFG, $DB;
         require_once($CFG->libdir . '/gdlib.php');
 
-        if (!is_array($foto_sources)) {
-            $foto_sources = [$foto_sources];
+        if (!is_array($fotosources)) {
+            $fotosources = [$fotosources];
         }
 
         $content = false;
-        foreach ($foto_sources as $url) {
+        foreach ($fotosources as $url) {
             if (!empty($url)) {
                 try {
                     $content = auth_suap_curl_get($url, [], 5);
@@ -422,16 +479,28 @@ class auth_plugin_suap extends auth_oauth2\auth
         }
 
         if ($content !== false && strlen($content) > 0) {
-            $tmp_filename = $CFG->tempdir . '/suapfoto' . $usuario->id;
-            file_put_contents($tmp_filename, $content);
-            $usuario->imagefile = process_new_icon(context_user::instance($usuario->id, MUST_EXIST), 'user', 'icon', 0, $tmp_filename);
+            $tmpfilename = $CFG->tempdir . '/suapfoto' . $usuario->id;
+            file_put_contents($tmpfilename, $content);
+            $usuario->imagefile = process_new_icon(
+                context_user::instance($usuario->id, MUST_EXIST),
+                'user',
+                'icon',
+                0,
+                $tmpfilename
+            );
             if ($usuario->imagefile) {
                 $DB->set_field('user', 'picture', $usuario->imagefile, ['id' => $usuario->id]);
             }
         }
     }
 
-    function get_userinfo($username) {
+    /**
+     * Get user info as an associative array.
+     *
+     * @param string $username Username.
+     * @return array User attributes array.
+     */
+    public function get_userinfo($username) {
         return get_object_vars($this->usuario);
     }
 }

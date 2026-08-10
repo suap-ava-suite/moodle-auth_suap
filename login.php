@@ -15,13 +15,17 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * SUAP OAuth2 login trigger script.
  *
- * @category   auth
  * @package     auth_suap
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
+
 require_once('../../config.php');
+require_login(null, false);
 require_once($CFG->dirroot . '/auth/suap/auth.php');
+
+$PAGE->set_url(new moodle_url('/auth/suap/login.php'));
 
 (new auth_plugin_suap())->login();

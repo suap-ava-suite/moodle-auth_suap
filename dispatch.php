@@ -15,9 +15,11 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Dispatch web service requests for SUAP authentication.
  *
- * @category    auth
  * @package     auth_suap
+ * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 define('AJAX_SCRIPT', true);
@@ -28,7 +30,7 @@ require_once(__DIR__ . '/../../config.php');
 require_once(__DIR__ . '/../../lib/externallib.php');
 require_once(__DIR__ . '/locallib.php');
 
-// Permições de CORS para requisições PREFLIGHT (ionic)
+// Permissões de CORS para requisições PREFLIGHT (ionic).
 if ($_SERVER["REQUEST_METHOD"] == "OPTIONS") {
     header("Access-Control-Allow-Origin: *");
     header("Access-Control-Allow-Methods: GET, POST, OPTIONS");
@@ -39,6 +41,12 @@ if ($_SERVER["REQUEST_METHOD"] == "OPTIONS") {
 // Allow CORS requests.
 header('Access-Control-Allow-Origin: *');
 
+/**
+ * Validate that web services are enabled on the site.
+ *
+ * @return stdClass The external service record.
+ * @throws moodle_exception
+ */
 function validate_enabled_web_services() {
     global $DB, $CFG;
 
@@ -46,7 +54,7 @@ function validate_enabled_web_services() {
         throw new moodle_exception('enablewsdescription', 'webservice');
     }
 
-    // Não pode se o serviço não existir e não estiver habilitado
+    // Não pode se o serviço não existir e não estiver habilitado.
     $servicename = required_param('service', PARAM_ALPHANUMEXT);
     $service = $DB->get_record('external_services', ['shortname' => $servicename, 'enabled' => 1]);
     if (empty($service)) {
@@ -63,80 +71,106 @@ function validate_enabled_web_services() {
     return $service;
 }
 
+/**
+ * Authenticate the caller of the web service via token.
+ *
+ * @return string Username of the caller.
+ * @throws Exception
+ */
 function authenticate_service_caller() {
     $config = get_auth_suap_config();
     $headers = getallheaders();
 
-    // Verifica se o token de autenticação está no header
-    $authentication_key = array_key_exists('Authentication', $headers) ? "Authentication" : "authentication";
-    if (!array_key_exists($authentication_key, $headers)) {
+    // Verifica se o token de autenticação está no header.
+    $authenticationkey = array_key_exists('Authentication', $headers) ? "Authentication" : "authentication";
+    if (!array_key_exists($authenticationkey, $headers)) {
         throw new \Exception("Bad Request - Authentication not informed", 400);
     }
 
-    // Recorta o token do header "Token ..."
-    $token = substr($headers[$authentication_key], 6);
+    // Recorta o token do header "Token ...".
+    $token = substr($headers[$authenticationkey], 6);
 
-    $verify_response = auth_suap_curl_post(
+    $verifyresponse = auth_suap_curl_post(
         $config->verify_token_url,
         json_encode(["token" => $token]),
         'application/json'
     );
-    $response = json_decode($verify_response);
+    $response = json_decode($verifyresponse);
 
     return $response->username;
 }
 
+/**
+ * Authenticate and load the user record into memory.
+ *
+ * @param string $username
+ * @return void
+ * @throws moodle_exception
+ */
 function authenticate_user($username) {
     global $USER, $DB;
 
-    // Verifica se o usuário necessita trocar a senha
+    // Verifica se o usuário necessita trocar a senha.
     $username = trim(core_text::strtolower($username));
     if (is_restored_user($username)) {
         throw new moodle_exception('restoredaccountresetpassword', 'webservice');
     }
 
-    // Não pode se o usuário não existir
+    // Não pode se o usuário não existir.
     $USER = $DB->get_record("user", ["username" => $username]);
     if (empty($USER)) {
         throw new moodle_exception('invalidlogin');
     }
 }
 
+/**
+ * Check user authorization and setup session.
+ *
+ * @return void
+ * @throws moodle_exception
+ */
 function authorize_user() {
-    global $USER;
+    global $USER, $CFG;
 
-    // Não pode guest user
+    // Não pode guest user.
     if (isguestuser($USER)) {
         throw new moodle_exception('noguest');
     }
 
-    // Não pode usuário que ainda não confirmaram a senha
+    // Não pode usuário que ainda não confirmaram a senha.
     if (empty($USER->confirmed)) {
         throw new moodle_exception('usernotconfirmed', 'moodle', '', $USER->username);
     }
 
-    // Para controlar: autorização
+    // Para controlar: autorização.
     $systemcontext = context_system::instance();
 
-    // Não pode em mode de manutenção, exceto administradores
+    // Não pode em modo de manutenção, exceto administradores.
     $hasmaintenanceaccess = has_capability('moodle/site:maintenanceaccess', $systemcontext, $USER);
-    if (!empty($CFG->maintenance_enabled) and !$hasmaintenanceaccess) {
+    if (!empty($CFG->maintenance_enabled) && !$hasmaintenanceaccess) {
         throw new moodle_exception('sitemaintenance', 'admin');
     }
 
-    // let enrol plugins deal with new enrolments if necessary
+    // Let enrol plugins deal with new enrolments if necessary.
     enrol_check_plugins($USER);
 
-    // setup user session to check capability
+    // Setup user session to check capability.
     \core\session\manager::set_user($USER);
 
     $USER->site_admin = has_capability('moodle/site:config', $systemcontext, $USER->id);
 }
 
+/**
+ * Generate and return web service token response.
+ *
+ * @param stdClass $service
+ * @return void
+ */
 function response_token($service) {
+    global $USER;
+
     $token = external_generate_token_for_current_user($service);
 
-    // prod
     echo json_encode(
         [
             "token" => $token->token,
@@ -144,13 +178,6 @@ function response_token($service) {
         ]
     );
 
-    // dev
-    // echo json_encode(
-    // [
-    // "token" => $token->token,
-    // "privatetoken" => !$USER->site_admin ? $token->privatetoken : null,
-    // ]
-    // );
     external_log_token_request($token);
 }
 

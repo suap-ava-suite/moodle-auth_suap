@@ -26,13 +26,6 @@ namespace auth_suap\privacy;
 
 use core_privacy\local\metadata\collection;
 use core_privacy\local\metadata\provider as metadata_provider;
-use core_privacy\local\request\approved_contextlist;
-use core_privacy\local\request\context;
-use core_privacy\local\request\contextlist;
-use core_privacy\local\request\deletion_progress;
-use core_privacy\local\request\userlist;
-use core_privacy\local\request\userlist_context;
-use core_privacy\local\request\writer;
 
 /**
  * Privacy API implementation for auth_suap.
@@ -43,7 +36,9 @@ use core_privacy\local\request\writer;
  * However, this plugin communicates with an external SUAP service and sends
  * user information during authentication and data synchronization processes.
  *
- * @package     auth_suap\privacy
+ * @package     auth_suap
+ * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
+ * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class provider implements metadata_provider {
     /**

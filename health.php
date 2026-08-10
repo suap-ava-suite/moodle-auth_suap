@@ -15,15 +15,19 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
+ * Health check endpoint for auth_suap plugin.
  *
- * @category    auth
  * @package     auth_suap
+ * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
+ * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$plugin = new stdClass();
-include_once("../../config.php");
-include_once("locallib.php");
-include_once("version.php");
+require_once(__DIR__ . "/../../config.php");
+require_login(null, false);
+require_once(__DIR__ . "/locallib.php");
+require_once(__DIR__ . "/version.php");
+
+$PAGE->set_url(new moodle_url('/auth/suap/health.php'));
 
 $conf = get_auth_suap_config();
 ob_clean();
@@ -36,7 +40,7 @@ echo json_encode(
         "component" => $plugin->component,
         "release" => $plugin->release,
         "version" => $plugin->version,
-        "client_id" => $conf->client_id == $_GET['client_id'],
+        "client_id" => $conf->client_id == optional_param('client_id', '', PARAM_RAW),
         "authorize_url" => $conf->authorize_url,
         "token_url" => $conf->token_url,
         "rh_eu_url" => $conf->rh_eu_url,
