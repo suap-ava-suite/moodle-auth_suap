@@ -152,15 +152,19 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 
 ## Como testar as actions
 
-Instale o act
+Para testar os workflows do GitHub Actions localmente utilizando o `act`:
 
+1. Instale o `act`:
 ```bash
 curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
 sudo mv ./bin/act /usr/local/bin/
 ```
 
-Execute a ação localmente.
+2. Execute o job de testes localmente:
 ```bash
 act -j test --matrix php:8.3 --matrix database:pgsql
 ```
+
+> **Nota:** As branches do Moodle no `ci.yml` seguem o padrão oficial de 3 dígitos (ex: `MOODLE_405_STABLE` para Moodle 4.5).
+
 
