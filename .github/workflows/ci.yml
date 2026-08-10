@@ -58,9 +58,27 @@ jobs:
         with:
           node-version: '18'
 
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.json') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Cache moodle-plugin-ci & Moodle Core
+        uses: actions/cache@v4
+        with:
+          path: |
+            ci
+            ~/.moodle-plugin-ci
+          key: ${{ runner.os }}-moodle-ci-${{ matrix.moodle-branch }}-${{ matrix.php }}
+
       - name: Initialise moodle-plugin-ci
         run: |
-          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          if [ ! -d "ci" ]; then
+            composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci ^4
+          fi
           echo $(cd ci/bin; pwd) >> $GITHUB_PATH
           echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
           if ! command -v psql &> /dev/null || ! command -v mysql &> /dev/null || ! command -v locale-gen &> /dev/null; then
@@ -117,24 +135,34 @@ jobs:
         if: ${{ !cancelled() }}
         run: moodle-plugin-ci phpunit --fail-on-warning
 
-      - name: Install Chrome dependencies
+      - name: Check if Behat tests exist
+        id: check_behat
         if: ${{ !cancelled() }}
+        run: |
+          if [ -d "./plugin/tests/behat" ] && [ -n "$(ls -A ./plugin/tests/behat 2>/dev/null)" ]; then
+            echo "has_behat=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_behat=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install Chrome dependencies
+        if: ${{ !cancelled() && steps.check_behat.outputs.has_behat == 'true' }}
         run: |
           if ! dpkg -l | grep -q libnspr4; then
             sudo apt-get update && sudo apt-get install -y libnspr4 libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 libpangocairo-1.0-0 libpango-1.0-0 libgtk-3-0
           fi
 
       - name: Setup Chrome
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.check_behat.outputs.has_behat == 'true' }}
         uses: browser-actions/setup-chrome@v1
 
       - name: Behat features
         id: behat
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.check_behat.outputs.has_behat == 'true' }}
         run: moodle-plugin-ci behat --profile chrome --scss-deprecations
 
       - name: Upload Behat Faildump
-        if: ${{ failure() && steps.behat.outcome == 'failure' }}
+        if: ${{ failure() && steps.behat.outputs.has_behat == 'true' && steps.behat.outcome == 'failure' }}
         uses: actions/upload-artifact@v4
         with:
           name: Behat Faildump (${{ join(matrix.*, ', ') }})
@@ -145,3 +173,4 @@ jobs:
       - name: Mark cancelled jobs as failed.
         if: ${{ cancelled() }}
         run: exit 1
+
