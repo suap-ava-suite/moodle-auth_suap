@@ -264,3 +264,22 @@ function auth_suap_save_user_custom_field(
 function get_auth_suap_config() {
     return get_config('auth_suap');
 }
+
+/**
+ * Redirect with anti-caching headers to avoid permanent browser caching.
+ *
+ * @param string|moodle_url $url URL to redirect to.
+ * @param string $message Optional message.
+ * @param int|null $delay Delay in seconds.
+ * @param string $messagetype Notification type.
+ * @return void
+ */
+function auth_suap_redirect($url, $message = '', $delay = null, $messagetype = \core\output\notification::NOTIFY_INFO) {
+    if (!headers_sent()) {
+        header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+        header('Cache-Control: post-check=0, pre-check=0', false);
+        header('Pragma: no-cache');
+        header('Expires: Mon, 26 Jul 1997 05:00:00 GMT');
+    }
+    redirect($url, $message, $delay, $messagetype);
+}

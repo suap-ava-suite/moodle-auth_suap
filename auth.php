@@ -93,7 +93,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
         if ($user->auth != 'suap') {
             return 0;
         }
-        redirect($CFG->wwwroot . '/auth/suap/logout.php');
+        auth_suap_redirect($CFG->wwwroot . '/auth/suap/logout.php');
     }
 
     /**
@@ -114,33 +114,29 @@ class auth_plugin_suap extends auth_oauth2\auth {
         }
 
         if ($USER->id) {
-            redirect($next);
+            auth_suap_redirect($next);
         } else {
+            if (empty($this->config->authorize_url) || empty($this->config->client_id)) {
+                throw new \moodle_exception('configincomplete', 'auth_suap');
+            }
             $SESSION->next_after_next = $next;
             $redirecturi = urlencode("$CFG->wwwroot/auth/suap/authenticate.php");
             $url = "{$this->config->authorize_url}?response_type=code&client_id={$this->config->client_id}"
                 . "&redirect_uri=$redirecturi";
-            redirect($url);
+            auth_suap_redirect($url);
         }
     }
 
     /**
-     * Handle authentication callback from SUAP.
+     * Autentica o token no SUAP.
      *
-     * @return void
+     * @return array Headers de autenticação com o Bearer token
      */
-    public function authenticate() {
-        global $CFG, $USER;
+    public function authenticate_token() {
+        global $CFG;
 
-        if (!empty($USER->id)) {
-            redirect($CFG->wwwroot);
-        }
-
-        $code = required_param('code', PARAM_RAW);
-
-        $tokenresponse = "";
-        $userdataresponse = "";
         try {
+            $code = required_param('code', PARAM_RAW);
             // Exchange code for access token.
             $tokenresponse = auth_suap_curl_post(
                 $this->config->token_url,
@@ -160,102 +156,158 @@ class auth_plugin_suap extends auth_oauth2\auth {
                 }
                 throw new Exception("Resposta de token inválida do SUAP: " . ($errordetails ?: $tokenresponse));
             }
-
-            // Get user data from SUAP (/api/rh/eu/).
-            $rheuurl = !empty($this->config->rh_eu_url) ? $this->config->rh_eu_url : 'https://suap.ifrn.edu.br/api/rh/eu/';
-            $headers = [
+            return [
                 "Authorization: Bearer {$auth->access_token}",
                 "x-api-key: {$this->config->client_secret}",
                 "Accept: application/json",
             ];
+        } catch (\Throwable $e) {
+            global $OUTPUT, $PAGE;
+            debugging('[AUTH SUAP] Erro ao obter token do SUAP: ' . $e->getMessage(), DEBUG_DEVELOPER);
 
-            $userdataresponse = auth_suap_curl_get(
-                "{$rheuurl}?scope=" . urlencode('identificacao documentos_pessoais'),
-                $headers
-            );
-            if (empty($userdataresponse) || strpos($userdataresponse, '"identificacao"') === false) {
-                throw new Exception("Erro ao tentar obter dados do SUAP.");
+            $PAGE->set_context(\context_system::instance());
+            $PAGE->set_title(get_string('auth_token_error_title', 'auth_suap'));
+            $PAGE->set_heading(get_string('auth_token_error_title', 'auth_suap'));
+
+            $templatecontext = [
+                'title' => get_string('auth_token_error_title', 'auth_suap'),
+                'message' => get_string('auth_token_error', 'auth_suap'),
+                'loginurl' => (new \moodle_url('/auth/suap/login.php'))->out(false),
+                'buttontext' => get_string('auth_token_error_button', 'auth_suap'),
+            ];
+
+            echo $OUTPUT->header();
+            echo $OUTPUT->render_from_template('auth_suap/auth_error', $templatecontext);
+            echo $OUTPUT->footer();
+            exit;
+        }
+    }
+
+    /**
+     * Get user data from SUAP (/api/rh/eu/).
+     *
+     * @param array $credentials Credentials with access token
+     * @return stdClass Object with user data
+     */
+    public function get_user_info_rh_eu($credentials) {
+        $rheuurl = !empty($this->config->rh_eu_url) ? $this->config->rh_eu_url : 'https://suap.ifrn.edu.br/api/rh/eu/';
+        $userdataresponse = auth_suap_curl_get(
+            "{$rheuurl}?scope=" . urlencode('identificacao documentos_pessoais'),
+            $credentials
+        );
+        if (empty($userdataresponse) || strpos($userdataresponse, '"identificacao"') === false) {
+            throw new Exception("Erro ao tentar obter dados do SUAP.");
+        }
+        $userdata = json_decode($userdataresponse);
+        if (empty($userdata) || !is_object($userdata)) {
+            throw new Exception("Dados de usuário retornados pelo SUAP são inválidos.");
+        }
+        return $userdata;
+    }
+
+    /**
+     * Get user personal data from SUAP (/api/rh/meus-dados/).
+     *
+     * @param array $credentials Credentials with access token
+     * @return stdClass Object with user personal data
+     */
+    public function get_user_info_rh_meus_dados($credentials) {
+        $meusdadosurl = !empty($this->config->rh_meus_dados_url) ?
+            $this->config->rh_meus_dados_url : 'https://suap.ifrn.edu.br/api/rh/meus-dados/';
+        $meusdadosresponse = auth_suap_curl_get($meusdadosurl, $credentials);
+        if (empty($meusdadosresponse)) {
+            throw new Exception("Erro ao tentar obter dados pessoais do SUAP.");
+        }
+        $meusdados = json_decode($meusdadosresponse);
+        if (empty($meusdados) || !is_object($meusdados)) {
+            throw new Exception("Dados pessoais de usuário retornados pelo SUAP são inválidos.");
+        }
+        unset($meusdados->tipo_sanguineo);
+        return $meusdados;
+    }
+
+    /**
+     * Get user relationships list from SUAP (/api/rh/meus-vinculos/).
+     *
+     * @param array $credentials Credentials with access token
+     * @return array List of user relationships
+     */
+    public function get_user_info_rh_meus_vinculos($credentials) {
+        $meusvinculosurl = !empty($this->config->rh_meus_vinculos_url) ?
+            $this->config->rh_meus_vinculos_url : 'https://suap.ifrn.edu.br/api/rh/meus-vinculos/';
+        $meusvinculosresponse = auth_suap_curl_get($meusvinculosurl, $credentials);
+        if (empty($meusvinculosresponse)) {
+            throw new Exception("Erro ao tentar obter dados de vínculos do SUAP.");
+        }
+        $meusvinculos = json_decode($meusvinculosresponse);
+        if (
+            empty($meusvinculos) || !is_object($meusvinculos)
+            || !isset($meusvinculos->results) || !is_array($meusvinculos->results)
+        ) {
+            throw new Exception("Dados de vínculos retornados pelo SUAP são inválidos.");
+        }
+        return ["vinculos" => $meusvinculos->results];
+    }
+
+    /**
+     * Get student data from SUAP (/api/ensino/meus-dados-aluno/).
+     *
+     * @param array $credentials Credentials with access token
+     * @return stdClass Object with student data
+     */
+    public function get_user_info_ensino_meus_dados_aluno($credentials) {
+        try {
+            $ensinoalunourl = !empty($this->config->ensino_meus_dados_aluno_url) ?
+                $this->config->ensino_meus_dados_aluno_url : 'https://suap.ifrn.edu.br/api/ensino/meus-dados-aluno/';
+            $ensinoalunoresponse = auth_suap_curl_get($ensinoalunourl, $credentials);
+            if (empty($ensinoalunoresponse)) {
+                throw new Exception("Erro ao tentar obter dados de aluno do SUAP.");
             }
-
-            $userdata = json_decode($userdataresponse);
-            if (empty($userdata) || !is_object($userdata)) {
-                throw new Exception("Dados de usuário retornados pelo SUAP são inválidos.");
+            $ensinoaluno = json_decode($ensinoalunoresponse);
+            if (empty($ensinoaluno) || !is_object($ensinoaluno)) {
+                throw new Exception("Dados de aluno retornados pelo SUAP são inválidos.");
             }
-
-            $suapbase = getenv('SUAP_BASE_URL') ?: 'https://suap.ifrn.edu.br';
-
-            // Get personal data from SUAP (/api/rh/meus-dados/).
-            try {
-                $meusdadosurl = !empty($this->config->rh_meus_dados_url) ?
-                    $this->config->rh_meus_dados_url : "{$suapbase}/api/rh/meus-dados/";
-                $meusdadosresponse = auth_suap_curl_get($meusdadosurl, $headers);
-                if (!empty($meusdadosresponse)) {
-                    $meusdados = json_decode($meusdadosresponse);
-                    if (!empty($meusdados) && is_object($meusdados)) {
-                        foreach ($meusdados as $key => $val) {
-                            if ($key === 'tipo_sanguineo') {
-                                continue;
-                            }
-                            if (!property_exists($userdata, $key) || (empty($userdata->{$key}) && !empty($val))) {
-                                $userdata->{$key} = $val;
-                            }
-                        }
-                    }
-                }
-            } catch (\Throwable $e) {
-                debugging('[AUTH SUAP] Warning ao obter /api/rh/meus-dados/: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            foreach (['email_academico', 'email_escolar', 'cpf'] as $key) {
+                unset($ensinoaluno->{$key});
             }
+            return $ensinoaluno;
+        } catch (\Throwable $e) {
+            return (object)[];
+        }
+    }
 
-            // Get relationships list from SUAP (/api/rh/meus-vinculos/).
-            try {
-                $meusvinculosurl = !empty($this->config->rh_meus_vinculos_url) ?
-                    $this->config->rh_meus_vinculos_url : "{$suapbase}/api/rh/meus-vinculos/";
-                $meusvinculosresponse = auth_suap_curl_get($meusvinculosurl, $headers);
-                if (!empty($meusvinculosresponse)) {
-                    $meusvinculos = json_decode($meusvinculosresponse);
-                    if (
-                        !empty($meusvinculos) && is_object($meusvinculos)
-                        && isset($meusvinculos->results) && is_array($meusvinculos->results)
-                    ) {
-                        $userdata->vinculos = $meusvinculos->results;
-                    }
-                }
-            } catch (\Throwable $e) {
-                debugging('[AUTH SUAP] Warning ao obter /api/rh/meus-vinculos/: ' . $e->getMessage(), DEBUG_DEVELOPER);
-            }
+    /**
+     * Handle authentication callback from SUAP.
+     *
+     * @return void
+     */
+    public function authenticate() {
+        global $CFG, $USER;
+        if (!empty($USER->id)) {
+            auth_suap_redirect($CFG->wwwroot);
+        }
 
-            // Get student data from SUAP (/api/ensino/meus-dados-aluno/).
-            if (isset($userdata->tipo_usuario) && $userdata->tipo_usuario === 'Aluno') {
-                try {
-                    $ensinoalunourl = !empty($this->config->ensino_meus_dados_aluno_url) ?
-                        $this->config->ensino_meus_dados_aluno_url : "{$suapbase}/api/ensino/meus-dados-aluno/";
-                    $ensinoalunoresponse = auth_suap_curl_get($ensinoalunourl, $headers);
-                    if (!empty($ensinoalunoresponse)) {
-                        $ensinoaluno = json_decode($ensinoalunoresponse);
-                        if (!empty($ensinoaluno) && is_object($ensinoaluno)) {
-                            if (!isset($userdata->vinculo) || !is_object($userdata->vinculo)) {
-                                $userdata->vinculo = new \stdClass();
-                            }
-                            foreach ($ensinoaluno as $key => $val) {
-                                if (in_array($key, ['email_academico', 'email_escolar', 'cpf'])) {
-                                    continue;
-                                }
-                                $userdata->vinculo->{$key} = $val;
-                            }
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    debugging('[AUTH SUAP] Warning ao obter /api/ensino/meus-dados-aluno/: ' . $e->getMessage(), DEBUG_DEVELOPER);
-                }
-            }
+        $userdata = null;
+        try {
+            $credentials = $this->authenticate_token();
 
-            $this->create_or_update_user($userdata);
+            $rheu = (array) $this->get_user_info_rh_eu($credentials);
+            $meusdados = (array) $this->get_user_info_rh_meus_dados($credentials);
+            $meusvinculos = (array) $this->get_user_info_rh_meus_vinculos($credentials);
+            $ensinomeusdadosaluno = (array) $this->get_user_info_ensino_meus_dados_aluno($credentials);
+            $userdata = (object) array_merge($rheu, $meusdados, $ensinomeusdadosaluno, $meusvinculos);
+
+            $usuario = $this->create_or_update_user($userdata);
+
+            complete_user_login($usuario);
+            $next = !empty($SESSION->next_after_next) ? $SESSION->next_after_next : $CFG->wwwroot;
+            unset($SESSION->next_after_next);
+            auth_suap_redirect($next);
         } catch (\Throwable $e) {
             // Log error for administrators.
             debugging('[AUTH SUAP] OAuth2 Authentication Error: ' . $e->getMessage(), DEBUG_DEVELOPER);
 
-            // Display user-friendly error message.
-            throw new \moodle_exception('auth_failure', 'auth_suap', '', null, $e->getMessage());
+            echo $e->getMessage();
         }
     }
 
@@ -267,7 +319,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
      * @throws moodle_exception
      */
     public function create_or_update_user($userdata) {
-        global $DB, $SESSION, $CFG;
+        global $DB;
 
         $identificador = !empty($userdata->identificacao) ?
             $userdata->identificacao : (!empty($userdata->matricula) ? $userdata->matricula : null);
@@ -423,8 +475,6 @@ class auth_plugin_suap extends auth_oauth2\auth {
         }
 
         $this->usuario = $usuario;
-        $next = !empty($SESSION->next_after_next) ? $SESSION->next_after_next : $CFG->wwwroot;
-        unset($SESSION->next_after_next);
 
         $this->update_user_record($this->usuario->username);
 
@@ -442,11 +492,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
             $this->update_picture($usuario, $fotosources);
         }
 
-        $usuario = $DB->get_record("user", ["username" => $username]);
-
-        complete_user_login($usuario);
-
-        redirect($next);
+        return $DB->get_record("user", ["username" => $username]);
     }
 
     /**
@@ -497,10 +543,9 @@ class auth_plugin_suap extends auth_oauth2\auth {
     /**
      * Get user info as an associative array.
      *
-     * @param string $username Username.
      * @return array User attributes array.
      */
-    public function get_userinfo($username) {
+    public function get_userinfo() {
         return get_object_vars($this->usuario);
     }
 }

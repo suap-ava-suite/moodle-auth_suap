@@ -21,9 +21,10 @@
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
  * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-
+// Página pública de autenticação.
+// Não chama require_login(), pois isso redirecionaria para o login padrão.
+// phpcs:ignore Moodle.Files.RequireLogin.Missing
 require_once('../../config.php');
-require_login(null, false);
 require_once('./auth.php');
 
 $PAGE->set_url(new moodle_url('/auth/suap/authenticate.php'));
