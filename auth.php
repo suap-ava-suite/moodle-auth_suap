@@ -543,9 +543,10 @@ class auth_plugin_suap extends auth_oauth2\auth {
     /**
      * Get user info as an associative array.
      *
+     * @param string $username
      * @return array User attributes array.
      */
-    public function get_userinfo() {
+    public function get_userinfo($username) {
         return get_object_vars($this->usuario);
     }
 }
