@@ -93,6 +93,10 @@ jobs:
             --exclude='.gitignore' \
             --exclude='.githooks' \
             --exclude='.idea' \
+            --exclude='.pre-commit-config.yaml' \
+            --exclude='AGENTS.md' \
+            --exclude='README.md' \
+            --exclude='SECURITY.md' \
             --exclude='node_modules' \
             --exclude='tests' \
             --exclude='vendor' \
