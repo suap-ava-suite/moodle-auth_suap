@@ -3,3 +3,6 @@ gitdiff.txt
 /moodle/
 /moodledata/
 /plugin/
+
+# Sphinx documentation (docs/).
+docs/_build/

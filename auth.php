@@ -478,21 +478,96 @@ class auth_plugin_suap extends auth_oauth2\auth {
 
         $this->update_user_record($this->usuario->username);
 
-        $fotosources = [];
-        if (!empty($userdata->url_foto_150x200)) {
-            $fotosources[] = $userdata->url_foto_150x200;
-        }
-        if (!empty($userdata->url_foto_75x100)) {
-            $fotosources[] = $userdata->url_foto_75x100;
-        }
-        if (!empty($userdata->foto)) {
-            $fotosources[] = $userdata->foto;
-        }
-        if (!empty($fotosources)) {
-            $this->update_picture($usuario, $fotosources);
-        }
+        // O download/processamento da foto é lento e não deve bloquear o redirecionamento
+        // pós-login; a atualização real acontece em segundo plano (ver queue_update_picture_task()).
+        $this->queue_update_picture_task($usuario);
 
         return $DB->get_record("user", ["username" => $username]);
+    }
+
+    /**
+     * Extrai as URLs de foto candidatas a partir do payload salvo em profile_field_last_login
+     * (JSON do último login via SUAP), na mesma ordem de prioridade usada acima:
+     * url_foto_150x200, url_foto_75x100, foto.
+     *
+     * @param stdClass $usuario User object (precisa de id e username).
+     * @return array Lista de URLs candidatas; vazia se o usuário não possui payload salvo, o
+     *               JSON é inválido, ou nenhum dos atributos previstos está presente.
+     */
+    public function get_last_login_photo_sources($usuario) {
+        global $DB;
+
+        $fieldid = $DB->get_field('user_info_field', 'id', ['shortname' => 'last_login']);
+        if (!$fieldid) {
+            return [];
+        }
+
+        $rawjson = $DB->get_field('user_info_data', 'data', ['userid' => $usuario->id, 'fieldid' => $fieldid]);
+        if (empty($rawjson)) {
+            return [];
+        }
+
+        $userdata = json_decode($rawjson);
+        if (empty($userdata) || !is_object($userdata)) {
+            mtrace(
+                '[AUTH SUAP] JSON inválido em profile_field_last_login para o usuário '
+                    . $usuario->username . ' (id ' . $usuario->id . ').',
+                DEBUG_DEVELOPER
+            );
+            return [];
+        }
+
+        $fotosources = [];
+        foreach (['url_foto_150x200', 'url_foto_75x100', 'foto'] as $key) {
+            if (!empty($userdata->{$key})) {
+                $fotosources[] = $userdata->{$key};
+            }
+        }
+
+        return $fotosources;
+    }
+
+    /**
+     * Tenta atualizar a foto do usuário, de forma síncrona, a partir do payload salvo em
+     * profile_field_last_login, sem exigir uma nova autenticação.
+     *
+     * Usado pela tarefa agendada de preenchimento retroativo (backfill_user_pictures) e pela
+     * tarefa ad hoc (update_user_picture_adhoc), que já rodam em segundo plano via cron — por
+     * isso podem chamar update_picture() diretamente.
+     *
+     * @param stdClass $usuario User object (precisa de id e username).
+     * @return bool true se a foto foi efetivamente atualizada; false se não havia URL de foto
+     *              candidata OU se a atualização foi tentada e falhou (ver update_picture()
+     *              para o registro do motivo — mtrace() e o evento picture_update_failed).
+     */
+    public function update_picture_from_last_login($usuario) {
+        $fotosources = $this->get_last_login_photo_sources($usuario);
+        if (empty($fotosources)) {
+            return false;
+        }
+
+        return $this->update_picture($usuario, $fotosources);
+    }
+
+    /**
+     * Enfileira uma tarefa ad hoc (auth_suap\task\update_user_picture_adhoc) para atualizar a
+     * foto do usuário em segundo plano, evitando que o download/processamento bloqueie o
+     * fluxo síncrono que a disparou — login via SUAP (authenticate()) ou a ação em massa da
+     * listagem administrativa de usuários (updatepicture_bulk.php).
+     *
+     * @param stdClass $usuario User object (precisa de id e username).
+     * @return bool true se havia dados de foto e a tarefa foi enfileirada; false caso
+     *              contrário (nada a fazer).
+     */
+    public function queue_update_picture_task($usuario) {
+        if (empty($this->get_last_login_photo_sources($usuario))) {
+            return false;
+        }
+
+        $task = new \auth_suap\task\update_user_picture_adhoc();
+        $task->set_custom_data(['userid' => $usuario->id]);
+        \core\task\manager::queue_adhoc_task($task, true);
+        return true;
     }
 
     /**
@@ -500,7 +575,8 @@ class auth_plugin_suap extends auth_oauth2\auth {
      *
      * @param stdClass $usuario User object.
      * @param array $fotosources List of photo URLs.
-     * @return void
+     * @return bool true se user.picture foi efetivamente atualizado; false em qualquer ponto
+     *              de falha (registrado via mtrace() e o evento picture_update_failed).
      */
     public function update_picture($usuario, $fotosources) {
         global $CFG, $DB;
@@ -519,25 +595,60 @@ class auth_plugin_suap extends auth_oauth2\auth {
                         break;
                     }
                 } catch (\Throwable $e) {
+                    mtrace(
+                        '[AUTH SUAP] Erro ao baixar foto do usuário ' . $usuario->username . ' em ' . $url . ': '
+                            . $e->getMessage()
+                    );
                     $content = false;
                 }
             }
         }
 
-        if ($content !== false && strlen($content) > 0) {
-            $tmpfilename = $CFG->tempdir . '/suapfoto' . $usuario->id;
-            file_put_contents($tmpfilename, $content);
-            $usuario->imagefile = process_new_icon(
-                context_user::instance($usuario->id, MUST_EXIST),
-                'user',
-                'icon',
-                0,
-                $tmpfilename
-            );
-            if ($usuario->imagefile) {
-                $DB->set_field('user', 'picture', $usuario->imagefile, ['id' => $usuario->id]);
-            }
+        if ($content === false || strlen($content) === 0) {
+            $reason = 'Nenhuma foto pôde ser obtida a partir das URLs fornecidas pelo SUAP.';
+            mtrace('[AUTH SUAP] ' . $reason . ' Usuário: ' . $usuario->username);
+            $this->log_picture_update_failure($usuario, $reason);
+            return false;
         }
+
+        $tmpfilename = $CFG->tempdir . '/suapfoto' . $usuario->id;
+        file_put_contents($tmpfilename, $content);
+        $usuario->imagefile = process_new_icon(
+            context_user::instance($usuario->id, MUST_EXIST),
+            'user',
+            'icon',
+            0,
+            $tmpfilename
+        );
+        if ($usuario->imagefile) {
+            $DB->set_field('user', 'picture', $usuario->imagefile, ['id' => $usuario->id]);
+            return true;
+        }
+
+        $reason = 'Falha ao processar a foto baixada (process_new_icon retornou vazio).';
+        mtrace('[AUTH SUAP] ' . $reason . ' Usuário: ' . $usuario->username);
+        $this->log_picture_update_failure($usuario, $reason);
+        return false;
+    }
+
+    /**
+     * Dispara o evento auth_suap\event\picture_update_failed, visível em Administração do
+     * site → Relatórios → Logs, filtrável por usuário — complementar ao mtrace() acima, que
+     * aparece no *Task output* de Administração do site → Servidor → Tarefas → Logs de
+     * tarefas (/admin/tasklogs.php), mas só é fácil de encontrar buscando pelo usuário
+     * específico se você já souber em qual execução procurar.
+     *
+     * @param stdClass $usuario User object (precisa de id).
+     * @param string $reason Motivo legível da falha (usado na descrição do evento).
+     * @return void
+     */
+    protected function log_picture_update_failure($usuario, $reason) {
+        \auth_suap\event\picture_update_failed::create([
+            'context' => context_user::instance($usuario->id, MUST_EXIST),
+            'objectid' => $usuario->id,
+            'relateduserid' => $usuario->id,
+            'other' => ['reason' => $reason],
+        ])->trigger();
     }
 
     /**

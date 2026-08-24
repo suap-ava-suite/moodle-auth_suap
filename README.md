@@ -2,9 +2,21 @@
 
 Plugin de autenticacao via OAuth2 do SUAP. Faz o login no Moodle e sincroniza dados do usuario, foto e campos de perfil customizados.
 
+Documentação: publicada em https://suap-ava-suite.github.io/moodle-auth_suap/ (gerada
+automaticamente a cada push em `docs/` via `.github/workflows/docs.yml`, usando o tema Sphinx
+[moodle-docs-theme](https://pypi.org/project/moodle-docs-theme/)). Para gerar localmente:
+
+```bash
+pip install sphinx moodle-docs-theme
+sphinx-build -W -b html docs docs/_build/html
+```
+
+Páginas: `docs/visao-geral.rst`, `docs/instalacao.rst`, `docs/fluxo-autenticacao.rst`,
+`docs/sincronizacao-usuario.rst`, `docs/privacidade.rst`, `docs/desenvolvimento.rst`.
+
 ## Requisitos
-- Moodle 3.7+ (require 2019_05_20_00)
-- PHP 7.2+ com extensão cURL habilitada
+- Moodle 4.5.0+ (require 2024_10_07_00)
+- PHP 8.3+ com extensão cURL habilitada
 - Plugin `auth_oauth2` habilitado (core do Moodle)
 
 ## Dependencias opcionais

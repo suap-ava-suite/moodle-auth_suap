@@ -15,17 +15,24 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * Capability definitions for auth_suap.
  *
  * @package     auth_suap
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
- * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'auth_suap';
-$plugin->release = '4.5.073';
-$plugin->version = 2026_08_24_073;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->requires = 2024100700;
+$capabilities = [
+    // Permite disparar, via a ação em massa na listagem administrativa de usuários (ou via
+    // a tarefa agendada backfill_user_pictures), a tentativa de atualizar a foto de um
+    // usuário SUAP a partir dos dados salvos do último login.
+    'auth/suap:updatepicture' => [
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_SYSTEM,
+        'archetypes' => [
+            'manager' => CAP_ALLOW,
+        ],
+    ],
+];

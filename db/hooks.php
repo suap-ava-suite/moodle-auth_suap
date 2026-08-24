@@ -15,17 +15,18 @@
 // along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
 
 /**
- * Plugin version and other meta-data are defined here.
+ * Hook callback registrations for auth_suap.
  *
  * @package     auth_suap
  * @copyright   2020 Kelson Medeiros <kelsoncm@gmail.com>
- * @license     http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ * @license     https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'auth_suap';
-$plugin->release = '4.5.073';
-$plugin->version = 2026_08_24_073;
-$plugin->maturity = MATURITY_STABLE;
-$plugin->requires = 2024100700;
+$callbacks = [
+    [
+        'hook' => \core_user\hook\extend_bulk_user_actions::class,
+        'callback' => \auth_suap\hook_callbacks::class . '::extend_bulk_user_actions',
+    ],
+];

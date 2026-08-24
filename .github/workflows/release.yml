@@ -1,20 +1,22 @@
 ##
-# GitHub Actions workflow: generate an installable Moodle plugin ZIP on every
-# tag push.
+# GitHub Actions workflow: generate an installable Moodle plugin ZIP when a GitHub Release is
+# published, and attach it to that release as a downloadable asset.
 #
 # Usage:
-#   git tag -a 1.0.0 -m "Release 1.0.0"
-#   git push origin 1.0.0
+#   1. Update version.php ($plugin->release must match the tag you are about to publish).
+#   2. Publish a GitHub Release whose tag matches $plugin->release, e.g.:
+#        gh release create 4.5.073 --title 4.5.073 --generate-notes
+#   3. This workflow builds auth_suap-<version>.zip (docs/ excluded) and attaches it to that
+#      release automatically.
 #
-# The resulting imagemap.zip can be uploaded directly to
+# The resulting ZIP can be uploaded directly to
 # Site administration → Plugins → Install plugins in Moodle.
 ##
 name: Release
 
 on:
-  push:
-    tags:
-      - '*'
+  release:
+    types: [published]
 
 jobs:
   release:
@@ -56,7 +58,7 @@ jobs:
 
           # Validação 2: Release deve corresponder à tag
           if [ "$RELEASE" != "$TAG" ]; then
-            echo "::error::\$plugin->release ($RELEASE) não corresponde ao nome da tag ($TAG). Atualize version.php antes de criar a tag."
+            echo "::error::\$plugin->release ($RELEASE) não corresponde ao nome da tag ($TAG). Atualize version.php antes de publicar a release."
             exit 1
           fi
 
@@ -82,7 +84,9 @@ jobs:
           # 1. Cria a pasta com o nome exato que o instalador do Moodle espera
           mkdir -p /tmp/build/$SHORTNAME
 
-          # 2. Copia os arquivos do repositório, ignorando lixo de desenvolvimento
+          # 2. Copia os arquivos do repositório, ignorando lixo de desenvolvimento e a
+          #    documentação (docs/ é publicada separadamente via GitHub Pages — ver
+          #    .github/workflows/docs.yml — e não faz parte do plugin instalável).
           rsync -a \
             --exclude='.git' \
             --exclude='.github' \
@@ -90,18 +94,18 @@ jobs:
             --exclude='.gitignore' \
             --exclude='tests' \
             --exclude='vendor' \
+            --exclude='docs' \
             . /tmp/build/$SHORTNAME/
 
           cd /tmp/build
-          
-          # 3. Dá ao arquivo ZIP o nome padrão (ex: tool_painelava-2023101000.zip)
+
+          # 3. Dá ao arquivo ZIP o nome padrão (ex: auth_suap-2026082400.zip)
           ZIPFILE="${COMPONENT}-${VERSION}.zip"
           zip -r "$GITHUB_WORKSPACE/$ZIPFILE" $SHORTNAME/
-          
+
           echo "zipfile=$ZIPFILE" >> "$GITHUB_OUTPUT"
 
-      - name: Create GitHub Release
+      - name: Attach ZIP to the published release
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.build.outputs.zipfile }}
-          generate_release_notes: true
