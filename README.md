@@ -14,6 +14,12 @@ sphinx-build -W -b html docs docs/_build/html
 Páginas: `docs/visao-geral.rst`, `docs/instalacao.rst`, `docs/fluxo-autenticacao.rst`,
 `docs/sincronizacao-usuario.rst`, `docs/privacidade.rst`, `docs/desenvolvimento.rst`.
 
+## Idiomas
+Strings da interface (`lang/`): `pt_br` (idioma principal, usado no desenvolvimento),
+`en` (obrigatório pelo Moodle), `es`, `fr` e `zh_cn`. Basta trocar o idioma do site/usuário em
+Moodle para que as telas do plugin (configurações, tarefas agendadas, mensagens de erro etc.)
+sejam exibidas no idioma escolhido; sem tradução disponível, o Moodle usa `en` como fallback.
+
 ## Requisitos
 - Moodle 4.5.0+ (require 2024_10_07_00)
 - PHP 8.3+ com extensão cURL habilitada
