@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 require_once(__DIR__ . '/locallib.php');
+require_once(__DIR__ . '/auth.php');
 
 if ($ADMIN->fulltree) {
     // Introductory explanation.
@@ -45,6 +46,30 @@ if ($ADMIN->fulltree) {
         "$suapbaseurl/api/ensino/meus-dados-aluno/"
     );
     auth_suap_create_setting_configtext($settings, "logout_url", "$suapbaseurl/comum/logout/");
+
+    auth_suap_create_setting_configselect(
+        $settings,
+        "name_source_order",
+        [
+            \auth_plugin_suap::NAME_ORDER_SOCIAL_USUAL_REGISTRO,
+            \auth_plugin_suap::NAME_ORDER_USUAL_SOCIAL_REGISTRO,
+            \auth_plugin_suap::NAME_ORDER_USUAL_REGISTRO,
+            \auth_plugin_suap::NAME_ORDER_SOCIAL_REGISTRO,
+            \auth_plugin_suap::NAME_ORDER_REGISTRO,
+        ],
+        \auth_plugin_suap::NAME_ORDER_SOCIAL_USUAL_REGISTRO
+    );
+
+    auth_suap_create_setting_configselect(
+        $settings,
+        "name_split_rule",
+        [
+            \auth_plugin_suap::NAME_SPLIT_FIRST_LAST,
+            \auth_plugin_suap::NAME_SPLIT_FIRSTS_LAST,
+            \auth_plugin_suap::NAME_SPLIT_FIRST_REST,
+        ],
+        \auth_plugin_suap::NAME_SPLIT_FIRSTS_LAST
+    );
 
     $authplugin = get_auth_plugin('suap');
     display_auth_lock_options(

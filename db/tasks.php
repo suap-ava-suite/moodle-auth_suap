@@ -38,4 +38,19 @@ $tasks = [
         // o agendamento diário acima se preferir execução automática.
         'disabled' => 1,
     ],
+    [
+        'classname' => 'auth_suap\task\sync_user_names',
+        'blocking' => 0,
+        'minute' => '0',
+        'hour' => '3',
+        'day' => '*',
+        'dayofweek' => '*',
+        'month' => '*',
+        // Desabilitada por padrão: destina-se a ser disparada manualmente via "Run now"
+        // em Site administration > Server > Tasks > Scheduled tasks, tipicamente logo após
+        // alterar name_source_order/name_split_rule, para aplicar a nova regra
+        // retroativamente. O admin pode habilitar o agendamento diário acima se preferir
+        // execução automática.
+        'disabled' => 1,
+    ],
 ];

@@ -14,6 +14,12 @@ sphinx-build -W -b html docs docs/_build/html
 Páginas: `docs/visao-geral.rst`, `docs/instalacao.rst`, `docs/fluxo-autenticacao.rst`,
 `docs/sincronizacao-usuario.rst`, `docs/privacidade.rst`, `docs/desenvolvimento.rst`.
 
+## Idiomas
+Strings da interface (`lang/`): `pt_br` (idioma principal, usado no desenvolvimento),
+`en` (obrigatório pelo Moodle), `es`, `fr` e `zh_cn`. Basta trocar o idioma do site/usuário em
+Moodle para que as telas do plugin (configurações, tarefas agendadas, mensagens de erro etc.)
+sejam exibidas no idioma escolhido; sem tradução disponível, o Moodle usa `en` como fallback.
+
 ## Requisitos
 - Moodle 4.5.0+ (require 2024_10_07_00)
 - PHP 8.3+ com extensão cURL habilitada
@@ -120,8 +126,8 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 | user.lastnamephonetic | Sim (criacao) | Nao | `null`. |
 | user.middlename | Sim (criacao) | Nao | `null`. |
 | user.alternatename | Sim (criacao) | Nao | `null`. |
-| user.firstname | Sim | Sim | Derivado de `nome_social` ou `nome_registro`, nessa ordem. Exceto a última parte. |
-| user.lastname | Sim | Sim | Derivado de `nome_social` ou `nome_registro`, nessa ordem. Apenas a última parte. |
+| user.firstname | Sim | Sim | Nome completo escolhido entre `nome_social`/`nome_usual`/`nome_registro` conforme a config `name_source_order`, dividido conforme a config `name_split_rule` (ver "Configuração do nome de exibição" abaixo). |
+| user.lastname | Sim | Sim | Idem acima. |
 | user.email | Sim | Sim | `email_preferencial` ou `email` |
 | user.auth | Sim | Sim | `suap` |
 | user.suspended | Sim | Sim | `0` |
@@ -161,6 +167,28 @@ Tabela baseada no fluxo de criacao/atualizacao em auth.php.
 - O campo `cpf` e `passaporte` estao marcados como descontinuados, mas ainda podem ser recebidos do SUAP.
 - Se a foto estiver disponivel (`url_foto_150x200`, `url_foto_75x100` ou `foto`), ela eh salva como `user.picture` via `process_new_icon`.
 - `profile_field_last_login` guarda o JSON completo recebido do SUAP para suporte.
+
+## Configuração do nome de exibição (firstname/lastname)
+
+`user.firstname`/`user.lastname` são montados em duas etapas, ambas configuráveis em
+*Site administration → Plugins → Authentication → SUAP OAuth2 Authentication* (sem precisar
+alterar código a cada mudança de regra de negócio):
+
+1. **`name_source_order`** — escolhe o nome completo entre `nome_social`, `nome_usual` e
+   `nome_registro` (o primeiro não vazio, na ordem escolhida). `nome_registro` é sempre o
+   fallback final, por ser o único campo garantidamente presente no payload do SUAP. Opções:
+   `social, usual, registro` (padrão) · `usual, social, registro` · `usual, registro` ·
+   `social, registro` · apenas `registro`.
+2. **`name_split_rule`** — divide o nome completo escolhido em `firstname`/`lastname`. Opções:
+   *Primeirão + Derradeiro* (firstname = 1ª palavra, lastname = última palavra) ·
+   *Primeiros + Derradeiro* (padrão; firstname = todas menos a última, lastname = última
+   palavra) · *Primeiro + Restante* (firstname = 1ª palavra, lastname = todas as demais).
+
+A tarefa agendada `auth_suap\task\sync_user_names` (desabilitada por padrão, disparo manual via
+*Site administration → Server → Tasks → Scheduled tasks → Run now*) reaplica essas duas
+configurações a todos os usuários SUAP já existentes, a partir do JSON salvo em
+`profile_field_last_login` — sem exigir um novo login. Útil logo após mudar `name_source_order`
+ou `name_split_rule`, para não depender do próximo login de cada pessoa.
 
 ## Como testar as actions
 

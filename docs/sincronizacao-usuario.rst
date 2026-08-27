@@ -90,11 +90,13 @@ Tabela baseada no fluxo de criação/atualização em ``auth.php::create_or_upda
    * - ``user.firstname``
      - Sim
      - Sim
-     - Derivado de ``nome_registro``: todas as partes exceto a última.
+     - Nome completo escolhido entre ``nome_social``/``nome_usual``/``nome_registro`` conforme
+       a configuração ``name_source_order``, dividido conforme ``name_split_rule`` (ver seção
+       abaixo).
    * - ``user.lastname``
      - Sim
      - Sim
-     - Derivado de ``nome_registro``: apenas a última parte.
+     - Idem acima.
    * - ``user.email``
      - Sim
      - Sim
@@ -422,6 +424,79 @@ Fluxo
 
 Diferente da tarefa agendada, esta ação **não filtra** por ``picture = 0`` — pode ser usada
 também para forçar uma nova tentativa em usuários que já têm foto.
+
+Configuração do nome de exibição (nome social)
+------------------------------------------------
+
+``user.firstname``/``user.lastname`` são montados a partir de duas configurações do plugin
+(*Site administration → Plugins → Authentication → SUAP OAuth2 Authentication*), em vez de uma
+regra fixa em código — a regra de negócio já mudou várias vezes, então trocar de regra agora é
+só uma mudança de configuração.
+
+``name_source_order``: ordem de prioridade das fontes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Escolhe o nome completo entre ``nome_social``, ``nome_usual`` e ``nome_registro`` — o primeiro
+não vazio, na ordem selecionada. ``nome_registro`` é sempre o fallback final, por ser o único
+campo garantidamente presente no payload do SUAP; ``nome_social`` e ``nome_usual`` podem vir
+ausentes ou como string vazia. Opções:
+
+1. Nome social, nome usual, nome de registro (**padrão**)
+2. Nome usual, nome social, nome de registro
+3. Nome usual, nome de registro
+4. Nome social, nome de registro
+5. Apenas nome de registro
+
+``name_split_rule``: regra de divisão em firstname/lastname
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Divide o nome completo escolhido acima em ``firstname``/``lastname``. Opções:
+
+1. **Primeirão + Derradeiro**: ``firstname`` = primeira palavra, ``lastname`` = última palavra
+   (nomes do meio são descartados).
+2. **Primeiros + Derradeiro** (**padrão**): ``firstname`` = todas as palavras exceto a última,
+   ``lastname`` = última palavra.
+3. **Primeiro + Restante**: ``firstname`` = primeira palavra, ``lastname`` = todas as demais.
+
+Um nome de uma única palavra sempre resulta em ``firstname == lastname`` (evita ``lastname``
+vazio, que o Moodle não aceita bem), independente da regra escolhida.
+
+Ambas as configurações são lidas por ``auth_plugin_suap::resolve_firstname_lastname()``
+(``auth.php``), chamado tanto durante o login (``create_or_update_user()``) quanto pela tarefa
+agendada abaixo.
+
+Tarefa agendada: sincronização retroativa de nomes
+------------------------------------------------------
+
+Alterar ``name_source_order``/``name_split_rule`` só afeta usuários no próximo login deles. A
+classe ``auth_suap\task\sync_user_names`` (``classes/task/sync_user_names.php``), registrada em
+``db/tasks.php``, aplica a regra atual retroativamente a todos os usuários já existentes, sem
+exigir novo login — mesmo princípio de reaproveitar ``profile_field_last_login`` já usado por
+``backfill_user_pictures``.
+
+Critério de elegibilidade
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+A tarefa seleciona usuários com ``auth = 'suap'``, não excluídos (``deleted = 0``). Para cada
+um, chama ``auth_plugin_suap::get_last_login_payload()`` para obter o JSON salvo; sem payload
+salvo, o usuário é ignorado. Com payload, calcula
+``resolve_firstname_lastname()`` e só grava (via ``user_update_user()``) se o resultado for
+diferente do ``firstname``/``lastname`` atuais.
+
+Como executar
+~~~~~~~~~~~~~~~
+
+A tarefa é registrada **desabilitada** por padrão (roda apenas sob demanda), tipicamente logo
+após alterar uma das duas configurações acima:
+
+1. Acesse **Administração do site → Servidor → Tarefas → Tarefas agendadas**
+   (*Site administration → Server → Tasks → Scheduled tasks*).
+2. Localize **"SUAP: sincronizar nomes de exibição dos usuários (nome social/usual/registro)"**.
+3. Clique em **Executar agora** (*Run now*) — disponível mesmo com a tarefa desabilitada; a
+   saída (``mtrace``) é exibida na própria tela.
+
+Se preferir execução automática recorrente, habilite a tarefa nessa mesma tela; o agendamento
+padrão definido em ``db/tasks.php`` é diário, às 03h.
 
 Notas
 -----

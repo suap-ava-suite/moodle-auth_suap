@@ -53,6 +53,30 @@ class auth_plugin_suap extends auth_oauth2\auth {
     /** @var stdClass|null User object */
     public $usuario;
 
+    /** @var string Ordem de prioridade: nome_social, nome_usual, nome_registro */
+    const NAME_ORDER_SOCIAL_USUAL_REGISTRO = 'social_usual_registro';
+
+    /** @var string Ordem de prioridade: nome_usual, nome_social, nome_registro */
+    const NAME_ORDER_USUAL_SOCIAL_REGISTRO = 'usual_social_registro';
+
+    /** @var string Ordem de prioridade: nome_usual, nome_registro (ignora nome_social) */
+    const NAME_ORDER_USUAL_REGISTRO = 'usual_registro';
+
+    /** @var string Ordem de prioridade: nome_social, nome_registro (ignora nome_usual) */
+    const NAME_ORDER_SOCIAL_REGISTRO = 'social_registro';
+
+    /** @var string Ordem de prioridade: apenas nome_registro */
+    const NAME_ORDER_REGISTRO = 'registro';
+
+    /** @var string Regra de divisão: firstname = primeira parte, lastname = última parte */
+    const NAME_SPLIT_FIRST_LAST = 'first_last';
+
+    /** @var string Regra de divisão: firstname = todas menos a última, lastname = última parte */
+    const NAME_SPLIT_FIRSTS_LAST = 'firsts_last';
+
+    /** @var string Regra de divisão: firstname = primeira parte, lastname = todas menos a primeira */
+    const NAME_SPLIT_FIRST_REST = 'first_rest';
+
     /**
      * Constructor.
      */
@@ -312,6 +336,101 @@ class auth_plugin_suap extends auth_oauth2\auth {
     }
 
     /**
+     * Retorna o primeiro valor string não vazio (após trim) dentre os informados. Trata tanto
+     * ausência/null quanto string vazia, já que a API do SUAP costuma retornar "" em vez de
+     * omitir o campo quando, por exemplo, não há nome social ou nome usual cadastrado.
+     *
+     * @param string|null ...$values
+     * @return string Primeiro valor não vazio, ou '' se todos forem vazios.
+     */
+    protected function first_non_empty(...$values) {
+        foreach ($values as $value) {
+            if (is_string($value) && trim($value) !== '') {
+                return $value;
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Resolve o "nome de registro" do usuário, com o mesmo fallback já usado em
+     * profile_field_nome_completo: nome_registro, ou nome quando o primeiro não vier.
+     *
+     * @param stdClass $userdata User data object from SUAP API.
+     * @return string
+     */
+    protected function resolve_registro_name($userdata) {
+        return $this->first_non_empty($userdata->nome_registro ?? null, $userdata->nome ?? null);
+    }
+
+    /**
+     * Divide um nome completo em firstname/lastname conforme a regra configurada em
+     * auth_suap/name_split_rule (ver settings.php). Nomes de uma única palavra viram
+     * firstname == lastname, para nunca gerar um lastname vazio (o Moodle não lida bem com
+     * isso).
+     *
+     * @param string $fullname
+     * @return array{0: string, 1: string} [firstname, lastname]
+     */
+    protected function split_fullname($fullname) {
+        $parts = preg_split('/\s+/', trim((string) $fullname), -1, PREG_SPLIT_NO_EMPTY);
+        if (empty($parts)) {
+            return ['', ''];
+        }
+        if (count($parts) === 1) {
+            return [$parts[0], $parts[0]];
+        }
+
+        $rule = get_config('auth_suap', 'name_split_rule') ?: self::NAME_SPLIT_FIRSTS_LAST;
+        switch ($rule) {
+            case self::NAME_SPLIT_FIRST_LAST:
+                return [$parts[0], end($parts)];
+            case self::NAME_SPLIT_FIRST_REST:
+                return [$parts[0], implode(' ', array_slice($parts, 1))];
+            case self::NAME_SPLIT_FIRSTS_LAST:
+            default:
+                return [implode(' ', array_slice($parts, 0, -1)), end($parts)];
+        }
+    }
+
+    /**
+     * Resolve firstname/lastname do usuário Moodle a partir do payload do SUAP, priorizando
+     * nome social/usual/registro conforme a ordem configurada em auth_suap/name_source_order
+     * (ver settings.php) e dividindo o nome completo escolhido conforme split_fullname().
+     *
+     * @param stdClass $userdata User data object from SUAP API.
+     * @return array{0: string, 1: string} [firstname, lastname]
+     */
+    public function resolve_firstname_lastname($userdata) {
+        $social = $userdata->nome_social ?? null;
+        $usual = $userdata->nome_usual ?? null;
+        $registro = $this->resolve_registro_name($userdata);
+
+        $order = get_config('auth_suap', 'name_source_order') ?: self::NAME_ORDER_SOCIAL_USUAL_REGISTRO;
+        switch ($order) {
+            case self::NAME_ORDER_USUAL_SOCIAL_REGISTRO:
+                $candidates = [$usual, $social, $registro];
+                break;
+            case self::NAME_ORDER_USUAL_REGISTRO:
+                $candidates = [$usual, $registro];
+                break;
+            case self::NAME_ORDER_SOCIAL_REGISTRO:
+                $candidates = [$social, $registro];
+                break;
+            case self::NAME_ORDER_REGISTRO:
+                $candidates = [$registro];
+                break;
+            case self::NAME_ORDER_SOCIAL_USUAL_REGISTRO:
+            default:
+                $candidates = [$social, $usual, $registro];
+                break;
+        }
+
+        $fullname = $this->first_non_empty(...$candidates);
+        return $this->split_fullname($fullname);
+    }
+
+    /**
      * Create or update user account from SUAP user data.
      *
      * @param stdClass $userdata User data object from SUAP API.
@@ -329,9 +448,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
         $username = strtolower($identificador);
         $usuario = $DB->get_record("user", ["username" => $username]);
 
-        $parts = explode(' ', $userdata->nome_registro ?? '');
-        $primeironome = implode(' ', array_slice($parts, 0, -1));
-        $ultimonome = end($parts);
+        [$primeironome, $ultimonome] = $this->resolve_firstname_lastname($userdata);
         $email = $userdata->email_preferencial ?? ($userdata->email ?? $userdata->email_secundario);
 
         if (!$usuario) {
@@ -371,7 +488,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
         }
 
         $usuario->firstname = $primeironome;
-        $usuario->lastname = $userdata->ultimo_nome;
+        $usuario->lastname = $ultimonome;
         $usuario->email = $email;
         $usuario->auth = 'suap';
         $usuario->suspended = 0;
@@ -486,25 +603,25 @@ class auth_plugin_suap extends auth_oauth2\auth {
     }
 
     /**
-     * Extrai as URLs de foto candidatas a partir do payload salvo em profile_field_last_login
-     * (JSON do último login via SUAP), na mesma ordem de prioridade usada acima:
-     * url_foto_150x200, url_foto_75x100, foto.
+     * Recupera e decodifica o payload do SUAP salvo em profile_field_last_login (JSON do último
+     * login), sem exigir uma nova autenticação. Usado tanto para atualizar a foto quanto para
+     * recalcular firstname/lastname de usuários já existentes (ver classes/task/sync_user_names.php).
      *
      * @param stdClass $usuario User object (precisa de id e username).
-     * @return array Lista de URLs candidatas; vazia se o usuário não possui payload salvo, o
-     *               JSON é inválido, ou nenhum dos atributos previstos está presente.
+     * @return stdClass|null Payload decodificado, ou null se o usuário não possui payload salvo
+     *                        ou o JSON é inválido.
      */
-    public function get_last_login_photo_sources($usuario) {
+    public function get_last_login_payload($usuario) {
         global $DB;
 
         $fieldid = $DB->get_field('user_info_field', 'id', ['shortname' => 'last_login']);
         if (!$fieldid) {
-            return [];
+            return null;
         }
 
         $rawjson = $DB->get_field('user_info_data', 'data', ['userid' => $usuario->id, 'fieldid' => $fieldid]);
         if (empty($rawjson)) {
-            return [];
+            return null;
         }
 
         $userdata = json_decode($rawjson);
@@ -514,6 +631,24 @@ class auth_plugin_suap extends auth_oauth2\auth {
                     . $usuario->username . ' (id ' . $usuario->id . ').',
                 DEBUG_DEVELOPER
             );
+            return null;
+        }
+
+        return $userdata;
+    }
+
+    /**
+     * Extrai as URLs de foto candidatas a partir do payload salvo em profile_field_last_login
+     * (JSON do último login via SUAP), na mesma ordem de prioridade usada acima:
+     * url_foto_150x200, url_foto_75x100, foto.
+     *
+     * @param stdClass $usuario User object (precisa de id e username).
+     * @return array Lista de URLs candidatas; vazia se o usuário não possui payload salvo, o
+     *               JSON é inválido, ou nenhum dos atributos previstos está presente.
+     */
+    public function get_last_login_photo_sources($usuario) {
+        $userdata = $this->get_last_login_payload($usuario);
+        if (!$userdata) {
             return [];
         }
 

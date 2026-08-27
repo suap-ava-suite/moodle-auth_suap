@@ -34,6 +34,15 @@ Dependência opcional
   ``default_user_preferences`` (admin do Moodle) são aplicadas ao usuário **apenas na
   criação** da conta, não em logins subsequentes.
 
+Idiomas
+-------
+
+As strings de interface do plugin (``lang/``) estão disponíveis em ``pt_br`` (idioma principal,
+usado no desenvolvimento), ``en`` (obrigatório pelo Moodle, usado como fallback), ``es``,
+``fr`` e ``zh_cn``. Basta alterar o idioma do site ou do usuário em Moodle para que as telas do
+plugin — configurações, tarefas agendadas, mensagens de erro — sejam exibidas no idioma
+escolhido.
+
 Estrutura do repositório
 -------------------------
 
@@ -55,7 +64,7 @@ Estrutura do repositório
    │   ├── migrate.php               # auth_suap_bulk_user_custom_field() (compartilhado)
    │   └── uninstall.php
    ├── classes/privacy/provider.php  # Metadados enviados ao SUAP (API de privacidade)
-   ├── lang/{en,pt_br}/auth_suap.php # Strings de idioma
+   ├── lang/{en,pt_br,es,fr,zh_cn}/auth_suap.php # Strings de idioma
    ├── templates/auth_error.mustache # Tela de erro de autenticação
    ├── docs/                         # Esta documentação (Sphinx)
    └── .github/workflows/
