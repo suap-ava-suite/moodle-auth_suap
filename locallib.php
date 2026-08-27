@@ -218,6 +218,31 @@ function auth_suap_create_setting_configtextarea($settings, $name, $default = ''
 }
 
 /**
+ * Helper to add a select configuration setting to admin page. Cada valor em $choices deve ter
+ * uma string de idioma "{$name}_{$value}" com o rótulo exibido para essa opção.
+ *
+ * @param admin_settingpage $settings Settings page.
+ * @param string $name Setting name.
+ * @param array $choices Valores válidos (usados também como sufixo da string de idioma do rótulo).
+ * @param string $default Default value.
+ * @return void
+ */
+function auth_suap_create_setting_configselect($settings, $name, $choices, $default) {
+    $themename = 'auth_suap';
+    $options = [];
+    foreach ($choices as $choice) {
+        $options[$choice] = get_string("{$name}_{$choice}", $themename);
+    }
+    $settings->add(new admin_setting_configselect(
+        "$themename/$name",
+        get_string($name, $themename),
+        get_string("{$name}_desc", $themename),
+        $default,
+        $options
+    ));
+}
+
+/**
  * Save custom user profile field.
  *
  * @param int $categoryid Category ID.
