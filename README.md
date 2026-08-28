@@ -16,7 +16,7 @@ Páginas: `docs/visao-geral.rst`, `docs/instalacao.rst`, `docs/fluxo-autenticaca
 
 ## Idiomas
 Strings da interface (`lang/`): `pt_br` (idioma principal, usado no desenvolvimento),
-`en` (obrigatório pelo Moodle), `es`, `fr` e `zh_cn`. Basta trocar o idioma do site/usuário em
+`en` (obrigatório pelo Moodle), `es`, `fr`, `nl` e `zh_cn`. Basta trocar o idioma do site/usuário em
 Moodle para que as telas do plugin (configurações, tarefas agendadas, mensagens de erro etc.)
 sejam exibidas no idioma escolhido; sem tradução disponível, o Moodle usa `en` como fallback.
 
