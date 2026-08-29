@@ -112,6 +112,6 @@ jobs:
           echo "zipfile=$ZIPFILE" >> "$GITHUB_OUTPUT"
 
       - name: Attach ZIP to the published release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.build.outputs.zipfile }}
