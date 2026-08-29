@@ -7,6 +7,7 @@ import moodle_docs_theme
 sys.path.insert(0, os.path.abspath(".."))
 
 project = "auth_suap"
+language = "en"
 
 extensions = [
     "sphinx.ext.githubpages",
@@ -24,17 +25,18 @@ html_static_path = ["_static"]
 
 html_theme_options = {
     "project_name": "auth_suap",
-    "tagline": "Plugin de autenticação OAuth2 do SUAP para o Moodle",
+    "tagline": "SUAP OAuth2 authentication plugin for Moodle",
     "github_url": "https://github.com/suap-ava-suite/moodle-auth_suap",
     "github_repo": "suap-ava-suite/moodle-auth_suap",
     "github_version": "main",
-    "doc_path": "docs/",
+    "doc_path": "docs/en/",
     "show_edit_on_github": True,
     "enable_dark_mode": True,
     "navigation_links": (
-        "Início|index, Visão geral|visao-geral, Instalação|instalacao, "
-        "Fluxo de autenticação|fluxo-autenticacao, "
-        "Sincronização de usuário|sincronizacao-usuario, "
-        "Privacidade|privacidade, Desenvolvimento|desenvolvimento"
+        "Home|index, Overview|visao-geral, Installation|instalacao, "
+        "Authentication flow|fluxo-autenticacao, "
+        "User synchronization|sincronizacao-usuario, "
+        "Privacy|privacidade, Development|desenvolvimento, "
+        "🌐 Português (PT-BR)|../pt-br/index.html"
     ),
 }
