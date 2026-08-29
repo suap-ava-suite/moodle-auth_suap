@@ -154,7 +154,7 @@ jobs:
 
       - name: Setup Chrome
         if: ${{ !cancelled() && steps.check_behat.outputs.has_behat == 'true' }}
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
 
       - name: Behat features
         id: behat
