@@ -42,7 +42,7 @@ jobs:
         run: rm -rf moodle moodledata plugin
 
       - name: Check out repository code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           path: plugin
 
