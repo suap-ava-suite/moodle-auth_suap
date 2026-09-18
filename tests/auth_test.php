@@ -186,5 +186,6 @@ final class auth_test extends \advanced_testcase {
         $plugin->config->rh_meus_vinculos_url = 'http://127.0.0.1:1/api/rh/meus-vinculos/';
 
         $this->assertSame(['vinculos' => []], $plugin->get_user_info_rh_meus_vinculos([]));
+        $this->assertDebuggingCalled();
     }
 }
