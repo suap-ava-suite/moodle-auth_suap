@@ -53,6 +53,18 @@ class auth_plugin_suap extends auth_oauth2\auth {
     /** @var stdClass|null User object */
     public $usuario;
 
+    /** @var int Timeout (s) da chamada a /api/rh/meus-vinculos/, que é opcional e pode ser lenta. */
+    const VINCULOS_TIMEOUT = 10;
+
+    /**
+     * @var int Acima deste total de vínculos a lista é descartada: um usuário legítimo tem poucos
+     * vínculos; milhares indicam que o SUAP devolveu vínculos de terceiros (ex.: usuário sem CPF).
+     */
+    const VINCULOS_MAX_COUNT = 100;
+
+    /** @var string Domínio reservado (RFC 2606) usado no e-mail provisório de quem não tem e-mail no SUAP. */
+    const PLACEHOLDER_EMAIL_DOMAIN = 'sem-email.invalid';
+
     /** @var string Ordem de prioridade: nome_social, nome_usual, nome_registro */
     const NAME_ORDER_SOCIAL_USUAL_REGISTRO = 'social_usual_registro';
 
@@ -253,24 +265,37 @@ class auth_plugin_suap extends auth_oauth2\auth {
     /**
      * Get user relationships list from SUAP (/api/rh/meus-vinculos/).
      *
+     * Os vínculos são opcionais (só enriquecem o perfil), então qualquer falha, timeout ou resposta
+     * suspeita (ver VINCULOS_MAX_COUNT) resulta em lista vazia em vez de impedir o login.
+     *
      * @param array $credentials Credentials with access token
      * @return array List of user relationships
      */
     public function get_user_info_rh_meus_vinculos($credentials) {
-        $meusvinculosurl = !empty($this->config->rh_meus_vinculos_url) ?
-            $this->config->rh_meus_vinculos_url : 'https://suap.ifrn.edu.br/api/rh/meus-vinculos/';
-        $meusvinculosresponse = auth_suap_curl_get($meusvinculosurl, $credentials);
-        if (empty($meusvinculosresponse)) {
-            throw new Exception("Erro ao tentar obter dados de vínculos do SUAP.");
+        try {
+            $meusvinculosurl = !empty($this->config->rh_meus_vinculos_url) ?
+                $this->config->rh_meus_vinculos_url : 'https://suap.ifrn.edu.br/api/rh/meus-vinculos/';
+            $meusvinculosresponse = auth_suap_curl_get($meusvinculosurl, $credentials, self::VINCULOS_TIMEOUT);
+            if (empty($meusvinculosresponse)) {
+                throw new Exception("Erro ao tentar obter dados de vínculos do SUAP.");
+            }
+            $meusvinculos = json_decode($meusvinculosresponse);
+            if (
+                empty($meusvinculos) || !is_object($meusvinculos)
+                || !isset($meusvinculos->results) || !is_array($meusvinculos->results)
+            ) {
+                throw new Exception("Dados de vínculos retornados pelo SUAP são inválidos.");
+            }
+            $count = isset($meusvinculos->count) ? (int) $meusvinculos->count : count($meusvinculos->results);
+            if ($count > self::VINCULOS_MAX_COUNT) {
+                debugging("[AUTH SUAP] Vínculos descartados: o SUAP retornou {$count} registros.", DEBUG_DEVELOPER);
+                return ["vinculos" => []];
+            }
+            return ["vinculos" => $meusvinculos->results];
+        } catch (\Throwable $e) {
+            debugging('[AUTH SUAP] Vínculos indisponíveis, seguindo sem eles: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return ["vinculos" => []];
         }
-        $meusvinculos = json_decode($meusvinculosresponse);
-        if (
-            empty($meusvinculos) || !is_object($meusvinculos)
-            || !isset($meusvinculos->results) || !is_array($meusvinculos->results)
-        ) {
-            throw new Exception("Dados de vínculos retornados pelo SUAP são inválidos.");
-        }
-        return ["vinculos" => $meusvinculos->results];
     }
 
     /**
@@ -326,11 +351,36 @@ class auth_plugin_suap extends auth_oauth2\auth {
             complete_user_login($usuario);
             auth_suap_redirect($this->resolve_next_after_login());
         } catch (\Throwable $e) {
-            // Log error for administrators.
-            debugging('[AUTH SUAP] OAuth2 Authentication Error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            // Log error for administrators (debugging() só aparece com debug ligado; error_log sempre).
+            $mensagem = '[AUTH SUAP] OAuth2 Authentication Error: ' . get_class($e) . ': ' . $e->getMessage();
+            debugging($mensagem, DEBUG_DEVELOPER);
+            // phpcs:ignore moodle.PHP.ForbiddenFunctions.FoundWithAlternative
+            error_log($mensagem);
 
-            echo $e->getMessage();
+            $this->render_login_error();
         }
+    }
+
+    /**
+     * Exibe uma página de erro amigável (sem detalhes técnicos) quando o processamento do login falha.
+     *
+     * @return void
+     */
+    protected function render_login_error() {
+        global $OUTPUT, $PAGE;
+
+        $PAGE->set_context(\context_system::instance());
+        $PAGE->set_title(get_string('auth_token_error_title', 'auth_suap'));
+        $PAGE->set_heading(get_string('auth_token_error_title', 'auth_suap'));
+
+        echo $OUTPUT->header();
+        echo $OUTPUT->render_from_template('auth_suap/auth_error', [
+            'title' => get_string('auth_token_error_title', 'auth_suap'),
+            'message' => get_string('auth_login_error', 'auth_suap'),
+            'loginurl' => (new \moodle_url('/auth/suap/login.php'))->out(false),
+            'buttontext' => get_string('auth_token_error_button', 'auth_suap'),
+        ]);
+        echo $OUTPUT->footer();
     }
 
     /**
@@ -363,6 +413,23 @@ class auth_plugin_suap extends auth_oauth2\auth {
             }
         }
         return '';
+    }
+
+    /**
+     * Resolve o e-mail do usuário. A API do SUAP devolve "" (não null) quando não há e-mail, o que
+     * o operador ?? não trata; estrangeiros costumam vir assim. Sem e-mail algum, retorna ''.
+     *
+     * @param stdClass $userdata User data object from SUAP API.
+     * @return string
+     */
+    protected function resolve_email($userdata) {
+        return trim($this->first_non_empty(
+            $userdata->email_preferencial ?? null,
+            $userdata->email ?? null,
+            $userdata->email_secundario ?? null,
+            $userdata->email_google_classroom ?? null,
+            $userdata->email_academico ?? null
+        ));
     }
 
     /**
@@ -462,9 +529,12 @@ class auth_plugin_suap extends auth_oauth2\auth {
         $usuario = $DB->get_record("user", ["username" => $username]);
 
         [$primeironome, $ultimonome] = $this->resolve_firstname_lastname($userdata);
-        $email = $userdata->email_preferencial ?? ($userdata->email ?? $userdata->email_secundario);
+        $email = $this->resolve_email($userdata);
 
         if (!$usuario) {
+            if ($email === '') {
+                $email = $username . '@' . self::PLACEHOLDER_EMAIL_DOMAIN;
+            }
             $usuario = (object)[
                 'username' => $username,
                 'idnumber' => $identificador,
@@ -502,7 +572,10 @@ class auth_plugin_suap extends auth_oauth2\auth {
 
         $usuario->firstname = $primeironome;
         $usuario->lastname = $ultimonome;
-        $usuario->email = $email;
+        // Sem e-mail no SUAP, preserva o já cadastrado em vez de apagá-lo.
+        if ($email !== '') {
+            $usuario->email = $email;
+        }
         $usuario->auth = 'suap';
         $usuario->suspended = 0;
 
