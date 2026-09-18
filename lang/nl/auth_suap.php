@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['auth_description'] = 'OAuth2-authenticatie';
+$string['auth_login_error'] = 'Er is een fout opgetreden bij het verwerken van uw SUAP-gegevens. Probeer het opnieuw; neem contact op met support als het probleem aanhoudt.';
 $string['auth_suap_description'] = 'SUAP is het Geüniformeerd Systeem voor Openbaar Bestuur (Sistema Unificado de Administração Pública) dat wordt gebruikt in Braziliaanse federale instellingen, waaronder het Federaal Instituut van Rio Grande do Norte (IFRN). Deze plugin maakt Single Sign-On (SSO) integratie mogelijk, zodat studenten en medewerkers kunnen inloggen op Moodle met hun SUAP-inloggegevens. Het synchroniseert automatisch gebruikersgegevens van SUAP (naam, e-mail, CPF, inschrijvingsstatus) en ondersteunt rolgebaseerde toegang op basis van institutionele gegevens.';
 $string['auth_token_error'] = 'Er is een fout opgetreden bij het proberen te authenticeren met SUAP. De autorisatiecode is mogelijk verlopen of al gebruikt.';
 $string['auth_token_error_button'] = 'Herstart inloggen via SUAP';

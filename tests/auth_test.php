@@ -104,4 +104,87 @@ final class auth_test extends \advanced_testcase {
 
         $this->assertTrue(empty($SESSION->next_after_next));
     }
+
+    /**
+     * Payload de aluno estrangeiro real (e-mails vazios, CPF nulo), que gerava erro 500 no login.
+     *
+     * @return \stdClass
+     */
+    protected function estrangeiro_payload(): \stdClass {
+        return (object) [
+            'identificacao' => '202621513020058',
+            'nome_social' => '',
+            'nome_usual' => 'AGOSTINA AGUILERA',
+            'nome_registro' => 'AGOSTINA BELEN MOLAGUERO AGUILERA',
+            'email' => '',
+            'email_secundario' => '',
+            'email_google_classroom' => '',
+            'email_academico' => '',
+            'email_preferencial' => '',
+            'campus' => 'ZL',
+            'tipo_usuario' => 'Aluno',
+            'cpf' => null,
+            'data_de_nascimento' => '2003-03-29',
+            'sexo' => 'F',
+            'passaporte' => 'AAJ738108',
+            'vinculos' => [],
+        ];
+    }
+
+    /**
+     * A API devolve "" (e não null) quando não há e-mail; o ?? antigo aceitava a string vazia
+     * e ignorava os demais e-mails disponíveis.
+     */
+    public function test_resolve_email_skips_empty_strings(): void {
+        $plugin = new uth_plugin_suap();
+
+        $payload = $this->estrangeiro_payload();
+        $this->assertSame('', $this->call_protected($plugin, 'resolve_email', [$payload]));
+
+        $payload->email_secundario = 'vazquezeva@yahoo.com.ar';
+        $this->assertSame('vazquezeva@yahoo.com.ar', $this->call_protected($plugin, 'resolve_email', [$payload]));
+
+        $payload->email_preferencial = 'preferido@exemplo.org';
+        $this->assertSame('preferido@exemplo.org', $this->call_protected($plugin, 'resolve_email', [$payload]));
+    }
+
+    /**
+     * Estrangeiro sem e-mail nem CPF deve conseguir ser criado, com e-mail provisório.
+     */
+    public function test_create_or_update_user_foreigner_without_email(): void {
+        global $DB;
+
+        $plugin = new uth_plugin_suap();
+        $user = $plugin->create_or_update_user($this->estrangeiro_payload());
+
+        $this->assertSame('202621513020058', $user->username);
+        $this->assertSame('202621513020058@' . uth_plugin_suap::PLACEHOLDER_EMAIL_DOMAIN, $user->email);
+        $this->assertTrue($DB->record_exists('user', ['username' => '202621513020058']));
+    }
+
+    /**
+     * Um e-mail já cadastrado não pode ser apagado quando o SUAP passa a devolver e-mail vazio.
+     */
+    public function test_create_or_update_user_keeps_existing_email_when_suap_email_empty(): void {
+        $plugin = new uth_plugin_suap();
+
+        $payload = $this->estrangeiro_payload();
+        $payload->email = 'agostinamolaguero@gmail.com';
+        $plugin->create_or_update_user($payload);
+
+        $payload->email = '';
+        $user = $plugin->create_or_update_user($payload);
+
+        $this->assertSame('agostinamolaguero@gmail.com', $user->email);
+    }
+
+    /**
+     * Falha no endpoint de vínculos (aqui: conexão recusada) não pode impedir o login.
+     */
+    public function test_meus_vinculos_failure_returns_empty_list(): void {
+        $plugin = new uth_plugin_suap();
+        $plugin->config->rh_meus_vinculos_url = 'http://127.0.0.1:1/api/rh/meus-vinculos/';
+
+        $this->assertSame(['vinculos' => []], $plugin->get_user_info_rh_meus_vinculos([]));
+    }
 }

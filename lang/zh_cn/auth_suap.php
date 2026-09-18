@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['auth_description'] = 'OAuth2 认证';
+$string['auth_login_error'] = '处理您的 SUAP 数据时发生错误。请重试；如问题仍然存在，请联系支持人员。';
 $string['auth_suap_description'] = 'SUAP 是巴西联邦机构（包括北里奥格兰德联邦学院 IFRN）广泛使用的公共管理统一系统（Sistema Unificado de Administração Pública）。该插件支持单点登录（SSO）集成，允许学生和教职员工使用其 SUAP 账号登录 Moodle。它会自动从 SUAP 同步用户数据（姓名、邮箱、CPF、注册状态），并支持基于机构数据的角色访问控制。';
 $string['auth_token_error'] = '尝试通过 SUAP 进行身份验证时发生错误。授权码可能已过期或已被使用。';
 $string['auth_token_error_button'] = '通过 SUAP 重新登录';

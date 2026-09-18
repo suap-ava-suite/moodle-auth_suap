@@ -25,6 +25,7 @@
 defined('MOODLE_INTERNAL') || die();
 
 $string['auth_description'] = 'Autenticação OAuth2';
+$string['auth_login_error'] = 'Ocorreu um erro ao processar seus dados do SUAP. Tente novamente; se o problema persistir, entre em contato com o suporte.';
 $string['auth_suap_description'] = 'SUAP é o Sistema Unificado de Administração Pública utilizado em instituições federais brasileiras, incluindo o Instituto Federal do Rio Grande do Norte (IFRN). Este plugin possibilita integração de Single Sign-On (SSO), permitindo que alunos e servidores façam login no Moodle usando suas credenciais do SUAP. Sincroniza automaticamente dados do usuário (nome, email, CPF, status de matrícula) e suporta controle de acesso baseado em papéis conforme dados institucionais.';
 $string['auth_token_error'] = 'Ocorreu um erro ao tentar autenticar com o SUAP. O código de autorização pode ter expirado ou ter sido utilizado anteriormente.';
 $string['auth_token_error_button'] = 'Reiniciar login via SUAP';
