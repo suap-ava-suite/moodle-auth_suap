@@ -136,7 +136,7 @@ final class auth_test extends \advanced_testcase {
      * e ignorava os demais e-mails disponíveis.
      */
     public function test_resolve_email_skips_empty_strings(): void {
-        $plugin = new uth_plugin_suap();
+        $plugin = new \auth_plugin_suap();
 
         $payload = $this->estrangeiro_payload();
         $this->assertSame('', $this->call_protected($plugin, 'resolve_email', [$payload]));
@@ -154,11 +154,11 @@ final class auth_test extends \advanced_testcase {
     public function test_create_or_update_user_foreigner_without_email(): void {
         global $DB;
 
-        $plugin = new uth_plugin_suap();
+        $plugin = new \auth_plugin_suap();
         $user = $plugin->create_or_update_user($this->estrangeiro_payload());
 
         $this->assertSame('202621513020058', $user->username);
-        $this->assertSame('202621513020058@' . uth_plugin_suap::PLACEHOLDER_EMAIL_DOMAIN, $user->email);
+        $this->assertSame('202621513020058@' . \auth_plugin_suap::PLACEHOLDER_EMAIL_DOMAIN, $user->email);
         $this->assertTrue($DB->record_exists('user', ['username' => '202621513020058']));
     }
 
@@ -166,7 +166,7 @@ final class auth_test extends \advanced_testcase {
      * Um e-mail já cadastrado não pode ser apagado quando o SUAP passa a devolver e-mail vazio.
      */
     public function test_create_or_update_user_keeps_existing_email_when_suap_email_empty(): void {
-        $plugin = new uth_plugin_suap();
+        $plugin = new \auth_plugin_suap();
 
         $payload = $this->estrangeiro_payload();
         $payload->email = 'agostinamolaguero@gmail.com';
@@ -182,7 +182,7 @@ final class auth_test extends \advanced_testcase {
      * Falha no endpoint de vínculos (aqui: conexão recusada) não pode impedir o login.
      */
     public function test_meus_vinculos_failure_returns_empty_list(): void {
-        $plugin = new uth_plugin_suap();
+        $plugin = new \auth_plugin_suap();
         $plugin->config->rh_meus_vinculos_url = 'http://127.0.0.1:1/api/rh/meus-vinculos/';
 
         $this->assertSame(['vinculos' => []], $plugin->get_user_info_rh_meus_vinculos([]));

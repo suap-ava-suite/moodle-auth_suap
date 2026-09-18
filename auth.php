@@ -354,6 +354,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
             // Log error for administrators (debugging() só aparece com debug ligado; error_log sempre).
             $mensagem = '[AUTH SUAP] OAuth2 Authentication Error: ' . get_class($e) . ': ' . $e->getMessage();
             debugging($mensagem, DEBUG_DEVELOPER);
+            // phpcs:ignore moodle.PHP.ForbiddenFunctions.FoundWithAlternative
             error_log($mensagem);
 
             $this->render_login_error();
