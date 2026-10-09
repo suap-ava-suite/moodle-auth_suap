@@ -26,10 +26,10 @@ registers the fields:
   ``curso_nivel_ensino_descricao``, ``curso_nivel_ensino``
 * ``turma_id``, ``turma_codigo``
 
-All fields are created with ``locked = 1`` (locked for editing by the user) and
+All fields are created with ``locked = 0`` (unlocked in Moodle's global profile fields table) and
 ``visible = 1``, except ``last_login``, which is hidden (``visible = 0``). At the end, the
-lock is replicated (``field_lock_profile_field_<shortname> = locked``) to **all** installed
-authentication plugins, not just ``auth_suap``.
+lock is applied (``field_lock_profile_field_<shortname> = locked``) exclusively to the ``auth_suap``
+plugin, allowing other authentication plugins to manage field access normally.
 
 Fields changed on first login vs. subsequent logins
 --------------------------------------------------------

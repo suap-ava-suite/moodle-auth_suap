@@ -273,7 +273,7 @@ function auth_suap_save_user_custom_field(
             'descriptionformat' => 2,
             'datatype' => $datatype,
             'visible' => $visible,
-            'locked' => 1,
+            'locked' => 0,
             'param1' => $p1,
             'param2' => $p2,
             'sortorder' => auth_suap_get_last_sort_order('user_info_field'),

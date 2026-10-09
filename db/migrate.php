@@ -189,19 +189,26 @@ function auth_suap_bulk_user_custom_field() {
     $suapfields[] = auth_suap_save_user_custom_field($turma, 'turma_id', 'ID da última turma')->shortname;
     $suapfields[] = auth_suap_save_user_custom_field($turma, 'turma_codigo', 'Código última da turma')->shortname;
 
-    // Ensure custom profile fields are locked for the user and visible only to the user (except last_login).
+    // Ensure custom profile fields are unlocked globally in user_info_field (so other auth plugins can configure them),
+    // and visible only to the user (except last_login).
     [$insql, $params] = $DB->get_in_or_equal($suapfields);
     $DB->execute(
-        "UPDATE {user_info_field} SET locked = 1, visible = 1 WHERE shortname $insql AND shortname <> 'last_login'",
+        "UPDATE {user_info_field} SET locked = 0, visible = 1 WHERE shortname $insql AND shortname <> 'last_login'",
         $params
     );
-    $DB->execute("UPDATE {user_info_field} SET locked = 1, visible = 0 WHERE shortname = 'last_login'");
+    $DB->execute("UPDATE {user_info_field} SET locked = 0, visible = 0 WHERE shortname = 'last_login'");
 
-    // Lock all custom profile fields across all installed authentication methods.
+    // Lock custom profile fields only for auth_suap plugin, and clean up locks from other auth plugins.
     $authplugins = array_keys(\core_component::get_plugin_list('auth'));
     foreach ($authplugins as $auth) {
-        foreach ($suapfields as $shortname) {
-            set_config('field_lock_profile_field_' . $shortname, 'locked', 'auth_' . $auth);
+        if ($auth === 'suap') {
+            foreach ($suapfields as $shortname) {
+                set_config('field_lock_profile_field_' . $shortname, 'locked', 'auth_suap');
+            }
+        } else {
+            foreach ($suapfields as $shortname) {
+                unset_config('field_lock_profile_field_' . $shortname, 'auth_' . $auth);
+            }
         }
     }
 

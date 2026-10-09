@@ -25,10 +25,10 @@ por ``db/install.php`` e ``db/upgrade.php``) cria as categorias de campo de perf
   ``curso_nivel_ensino_descricao``, ``curso_nivel_ensino``
 * ``turma_id``, ``turma_codigo``
 
-Todos os campos são criados com ``locked = 1`` (bloqueados para edição pelo usuário) e
+Todos os campos são criados com ``locked = 0`` (desbloqueados na tabela global de campos de perfil do Moodle) e
 ``visible = 1``, exceto ``last_login``, que fica oculto (``visible = 0``). Ao final, o bloqueio
-é replicado (``field_lock_profile_field_<shortname> = locked``) para **todos** os plugins de
-autenticação instalados, não apenas ``auth_suap``.
+é aplicado (``field_lock_profile_field_<shortname> = locked``) exclusivamente para o plugin ``auth_suap``,
+permitindo que outros plugins de autenticação gerenciem o acesso aos campos normalmente.
 
 Campos alterados no primeiro login vs. logins seguintes
 ------------------------------------------------------------
