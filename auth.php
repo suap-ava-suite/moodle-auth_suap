@@ -520,6 +520,8 @@ class auth_plugin_suap extends auth_oauth2\auth {
     public function create_or_update_user($userdata) {
         global $DB;
 
+        \auth_suap\audit::set_context('login:suap');
+
         $identificador = !empty($userdata->identificacao) ?
             $userdata->identificacao : (!empty($userdata->matricula) ? $userdata->matricula : null);
         if (empty($identificador)) {
@@ -557,7 +559,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
                 'middlename' => null,
                 'alternatename' => null,
             ];
-            $usuario->id = \user_create_user($usuario);
+            $usuario->id = \auth_suap\audit::create_user($usuario);
 
             $defaultprefs = get_config('local/suap', 'default_user_preferences');
             if ($defaultprefs) {
@@ -679,7 +681,9 @@ class auth_plugin_suap extends auth_oauth2\auth {
 
         $this->usuario = $usuario;
 
-        $this->update_user_record($this->usuario->username);
+        \auth_suap\audit::around((int) $usuario->id, function () {
+            $this->update_user_record($this->usuario->username);
+        });
 
         // O download/processamento da foto é lento e não deve bloquear o redirecionamento
         // pós-login; a atualização real acontece em segundo plano (ver queue_update_picture_task()).
@@ -842,7 +846,7 @@ class auth_plugin_suap extends auth_oauth2\auth {
             $tmpfilename
         );
         if ($usuario->imagefile) {
-            $DB->set_field('user', 'picture', $usuario->imagefile, ['id' => $usuario->id]);
+            \auth_suap\audit::set_picture((int) $usuario->id, (int) $usuario->imagefile);
             return true;
         }
 
