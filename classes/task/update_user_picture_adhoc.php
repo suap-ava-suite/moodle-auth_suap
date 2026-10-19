@@ -61,6 +61,7 @@ class update_user_picture_adhoc extends \core\task\adhoc_task {
             return;
         }
 
+        \auth_suap\audit::set_context('task:auth_suap_update_user_picture');
         $auth = new \auth_plugin_suap();
 
         $fotosources = $auth->get_last_login_photo_sources($usuario);

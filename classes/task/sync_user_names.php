@@ -60,6 +60,7 @@ class sync_user_names extends \core\task\scheduled_task {
         require_once($CFG->dirroot . '/auth/suap/auth.php');
         require_once($CFG->dirroot . '/user/lib.php');
 
+        \auth_suap\audit::set_context('task:auth_suap_sync_user_names');
         $auth = new \auth_plugin_suap();
 
         $usuarios = $DB->get_recordset('user', ['auth' => 'suap', 'deleted' => 0]);
@@ -89,7 +90,7 @@ class sync_user_names extends \core\task\scheduled_task {
                 'firstname' => $firstname,
                 'lastname' => $lastname,
             ];
-            \user_update_user($record, false, false);
+            \auth_suap\audit::update_user($record, false, false);
             $atualizados++;
 
             mtrace(

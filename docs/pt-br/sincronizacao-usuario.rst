@@ -514,3 +514,13 @@ Notas
   ver ``auth.php::create_or_update_user()`` para a lista completa e a ordem de precedência
   entre ``vinculos[]`` (detalhamento por vínculo equivalente ao ``username``) e ``vinculo``
   (vínculo corrente).
+
+Auditoria das alterações
+------------------------
+
+Quando o plugin ``local_suap`` está instalado, as alterações de usuário feitas no login SUAP (criação,
+nome, e-mail, ``auth``, reativação ``suspended=0``, campos ``profile_field_*`` e foto) e pelas tarefas
+``sync_user_names`` e ``update_user_picture_adhoc`` são registradas na tabela ``local_suap_user_audit``
+com o ator ``login:suap`` ou ``task:auth_suap_*`` e o diff por campo (valores sensíveis mascarados).
+Sem o ``local_suap``, o comportamento é o mesmo de antes (``classes/audit.php`` apenas executa a escrita core).
+Consulta: *Administração do site → Relatórios → Auditoria de alterações de usuários*.
