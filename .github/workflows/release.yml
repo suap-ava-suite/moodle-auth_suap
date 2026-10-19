@@ -1,13 +1,14 @@
 ##
-# GitHub Actions workflow: generate an installable Moodle plugin ZIP when a GitHub Release is
-# published, and attach it to that release as a downloadable asset.
+# GitHub Actions workflow: generate an installable Moodle plugin ZIP on every tag push and
+# create the GitHub Release with the ZIP attached.
 #
 # Usage:
-#   1. Update version.php ($plugin->release must match the tag you are about to publish).
-#   2. Publish a GitHub Release whose tag matches $plugin->release, e.g.:
-#        gh release create 4.5.073 --title 4.5.073 --generate-notes
-#   3. This workflow builds auth_suap-<version>.zip (docs/ excluded) and attaches it to that
-#      release automatically.
+#   1. Update version.php ($plugin->release must match the tag you are about to push).
+#   2. Create and push the tag (do NOT run `gh release create` first: a published release is
+#      immutable and the ZIP upload fails):
+#        git tag -a 4.5.073 -m "Release 4.5.073"
+#        git push origin 4.5.073
+#   3. This workflow builds auth_suap-<version>.zip (docs/ excluded) and publishes the release.
 #
 # The resulting ZIP can be uploaded directly to
 # Site administration → Plugins → Install plugins in Moodle.
@@ -15,8 +16,9 @@
 name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - '*'
 
 jobs:
   release:
@@ -58,7 +60,7 @@ jobs:
 
           # Validação 2: Release deve corresponder à tag
           if [ "$RELEASE" != "$TAG" ]; then
-            echo "::error::\$plugin->release ($RELEASE) não corresponde ao nome da tag ($TAG). Atualize version.php antes de publicar a release."
+            echo "::error::\$plugin->release ($RELEASE) não corresponde ao nome da tag ($TAG). Atualize version.php antes de criar a tag."
             exit 1
           fi
 
@@ -111,7 +113,8 @@ jobs:
 
           echo "zipfile=$ZIPFILE" >> "$GITHUB_OUTPUT"
 
-      - name: Attach ZIP to the published release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.build.outputs.zipfile }}
+          generate_release_notes: true
