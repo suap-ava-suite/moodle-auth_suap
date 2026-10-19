@@ -517,3 +517,13 @@ Notes
   ``auth.php::create_or_update_user()`` for the complete list and the precedence order
   between ``vinculos[]`` (per-relationship detail equivalent to ``username``) and ``vinculo``
   (current relationship).
+
+Change audit
+------------
+
+When the ``local_suap`` plugin is installed, user changes made at SUAP login (creation, name, e-mail,
+``auth``, ``suspended=0`` reactivation, ``profile_field_*`` and photo) and by the ``sync_user_names`` and
+``update_user_picture_adhoc`` tasks are written to ``local_suap_user_audit`` with the actor ``login:suap``
+or ``task:auth_suap_*`` and a per-field diff (sensitive values masked). Without ``local_suap`` behaviour is
+unchanged (``classes/audit.php`` just performs the core write).
+View it under *Site administration → Reports → User change audit*.
